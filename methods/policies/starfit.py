@@ -6,7 +6,11 @@ class STARFIT(AbstractPolicy):
                  policy_params):
         pass
     
+    
     def validate_policy_params(self):
+        pass
+    
+    def parse_policy_params(self):
         pass
     
     def get_release(self, timestep):

@@ -1,20 +1,21 @@
 from abc import ABC, abstractmethod
 
-from methods.reservoir.model import Reservoir
-
-
 class AbstractPolicy(ABC):
     """
     Abstract policy class to enforce shared implementation 
     across different parameterized policies.
     """
     @abstractmethod
-    def __init__(self, policy_params):
+    def __init__(self, 
+                 Reservoir, 
+                 policy_params):
         """
         Initialize policy class.
         
         Parameters
         ----------
+        Reservoir : Reservoir
+            Reservoir object associated with the policy.
         policy_params : dict
             Dictionary of policy parameters.
         """
@@ -41,11 +42,32 @@ class AbstractPolicy(ABC):
         attribute variables.
         """
         pass
-    
+
+
+    def enforce_constraints(self, release):
+        """
+        Enforce constraints on the release.
+
+        Args:
+            release (float): The computed release.
+
+        Returns:
+            float: The release after enforcing constraints.
+        """
+        return max(self.Reservoir.release_min, min(self.Reservoir.release_max, release))
+
+
     @abstractmethod
-    def get_release(self, Reservoir, timestep):
+    def get_release(self, timestep):
         """
         Get the release for the current timestep,
         based on state information from the Reservoir object.
+        """
+        pass
+    
+    @abstractmethod
+    def plot(self):
+        """
+        Plot the policy function f(state) -> release.
         """
         pass

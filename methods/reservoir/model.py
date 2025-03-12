@@ -5,7 +5,6 @@ from methods.policies import PiecewiseLinear, RBF, STARFIT
 class Reservoir():
     def __init__(self, 
                  inflow, 
-                 demand, 
                  capacity,
                  policy_type,
                  policy_options,
@@ -24,8 +23,6 @@ class Reservoir():
         ----------
         inflow : np.array
             Array of inflow values for each timestep.
-        demand : np.array
-            Array of demand values for each timestep.
         capacity : float
             Maximum storage capacity of the reservoir.
         policy_type : str
@@ -54,7 +51,6 @@ class Reservoir():
         
         # Input timeseries
         self.inflow_array = inflow
-        self.demand_array = demand
         self.T = len(inflow)
         
         # Reservoir characteristics
@@ -69,7 +65,6 @@ class Reservoir():
         # initialize policy class
         self.policy = None
         self.initalize_policy(policy_type, 
-                               policy_options, 
                                policy_params)
     
     def reset(self):
@@ -84,7 +79,6 @@ class Reservoir():
     
     def initalize_policy(self, 
                           policy_type,
-                          policy_options,
                           policy_params):
         """
         Initialize the policy class based on the policy type.
@@ -108,12 +102,10 @@ class Reservoir():
             
         elif policy_type == 'RBF':
             self.policy = RBF(Reservoir=self,
-                              policy_options = policy_options, 
                               policy_params = policy_params)
             
         elif policy_type == 'STARFIT':
-            self.policy = STARFIT(Reservoir=self, 
-                                  policy_options=policy_options,
+            self.policy = STARFIT(Reservoir=self,
                                   policy_params=policy_params)
         
         else:
@@ -123,13 +115,20 @@ class Reservoir():
         return 
     
     
-    def get_release(self, t):
-        return self.policy.get_release(self, t)
+    def get_release(self, timestep):
+        """
+        Use the policy class to get the release for the given timestep,
+        the policy class can access reservoir attributes to make decisions.
+        """
+        return self.policy.get_release(timestep=timestep)
     
     
     
     def run(self):
-
+        """
+        Run the reservoir simulation.
+        """
+        
         # reset simulation variables
         self.reset()
         
@@ -138,12 +137,12 @@ class Reservoir():
             raise ValueError("Policy not initialized.")
         
         # run simulation
-        for t in range(self.T):
+        for t in range(1, self.T):
             # get target release from policy
-            release_target = self.get_release()
+            release_target = self.get_release(timestep=t)
             
             # enforce constraints on release
-            release_allowable = min(release_target, self.storage_array[t] + self.inflow_array[t])
+            release_allowable = min(release_target, self.storage_array[t-1] + self.inflow_array[t])
             self.release_array[t] = release_allowable
 
             # update
