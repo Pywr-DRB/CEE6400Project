@@ -52,7 +52,7 @@ class AbstractPolicy(ABC):
             release (float): The computed release.
 
         Returns:
-            float: The release after enforcing constraints.
+            float: The release after enforcing max/min constraints.
         """
         return max(self.Reservoir.release_min, min(self.Reservoir.release_max, release))
 
@@ -62,6 +62,9 @@ class AbstractPolicy(ABC):
         """
         Get the release for the current timestep,
         based on state information from the Reservoir object.
+        
+        Uses the evaluate method to compute the release,
+        then enforces constraints on the release.
         """
         pass
     

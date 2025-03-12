@@ -7,7 +7,6 @@ class Reservoir():
                  inflow, 
                  capacity,
                  policy_type,
-                 policy_options,
                  policy_params,
                  release_min = None,
                  release_max = None,

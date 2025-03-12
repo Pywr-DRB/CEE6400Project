@@ -74,24 +74,39 @@ class PiecewiseLinear(AbstractPolicy):
         for i in range(1, self.n_segments):
             prev_x = self.segment_x_bounds[i - 1]
             prev_b = self.segment_intercepts[i - 1]
-            self.segment_intercepts.append(prev_b + self.segment_slopes[i - 1] * (self.segment_x_bounds[i] - prev_x))
+            x_delta = self.segment_x_bounds[i] - prev_x
+            b = prev_b + self.segment_slopes[i - 1] * (x_delta)
+            self.segment_intercepts.append(b)
 
-
-    def evaluate(self, S_t):
+    def evaluate(self, X):
         """
         Evaluate the policy function at a given storage level.
 
         Args:
-            S_t (float): The current storage level.
+            X (float): The current storage level.
 
         Returns:
             float: The computed release.
         """
+        segment_idx = None
         for i in range(self.n_segments):
-            if i == self.n_segments - 1 or S_t < self.segment_x_bounds[i + 1]:
-                return self.segment_slopes[i] * (S_t - self.segment_x_bounds[i]) + self.segment_intercepts[i]
+            if X >= self.segment_x_bounds[i] and X < self.segment_x_bounds[i + 1]:
+                segment_idx = i
+                break
+            elif X >= self.Reservoir.capacity:
+                segment_idx = self.n_segments - 1
+                break
+        if segment_idx is None:
+            msg = f"No segment index found for storage {X}."
+            msg += f"Storage bounds: {self.segment_x_bounds}"
+            raise ValueError(msg)
+
+        # calculate release
+        x_delta = X - self.segment_x_bounds[segment_idx]
+        release = self.segment_slopes[segment_idx] * x_delta + self.segment_intercepts[segment_idx]
+
+        release = self.enforce_constraints(release)
         
-        release = self.enforce_constraints(self.Reservoir.release_max)
         return release 
 
 
@@ -113,10 +128,9 @@ class PiecewiseLinear(AbstractPolicy):
         else:
             S_t = self.Reservoir.storage_array[timestep - 1]
 
-        release = self.evaluate(S_t)
+        release = self.evaluate(X = S_t)
         release = self.enforce_constraints(release)
         release = min(release, S_t + I_t)
-
         return release
 
     def plot(self, fname="PiecewiseLinearPolicy.png"):
