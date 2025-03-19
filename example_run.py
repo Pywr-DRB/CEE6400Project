@@ -2,23 +2,7 @@ import numpy as np
 from methods.reservoir.model import Reservoir
 import pandas as pd
 
-# Define the inflow and demand timeseries
-
-def load_inflow(reservoir_name, filepath="data/inflow.csv"):
-    """
-    Loads inflow data for a specific reservoir.
-    
-    Args:
-        reservoir_name (str): Name of the reservoir.
-        filepath (str): Path to the inflow CSV file.
-
-    Returns:
-        np.array: Inflow timeseries for the given reservoir.
-    """
-    df = pd.read_csv(filepath)
-    if reservoir_name not in df.columns:
-        raise ValueError(f"Reservoir '{reservoir_name}' not found in {filepath}. Check CSV headers.")
-    return df[reservoir_name].values
+from methods.load import load_observations
 
 starfit_df = pd.read_csv("data/drb_model_istarf_conus.csv")
 
@@ -26,7 +10,7 @@ starfit_df = pd.read_csv("data/drb_model_istarf_conus.csv")
 reservoir_name = "blueMarsh"
 
 # Load inflow & STARFIT data
-inflow = load_inflow(reservoir_name)
+inflow = load_observations(datatype='inflow', reservoir_name)
 
 # Sets of test parameters
 test_params = {
