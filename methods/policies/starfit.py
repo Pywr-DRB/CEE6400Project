@@ -8,106 +8,115 @@ class STARFIT(AbstractPolicy):
     STARFIT policy class for reservoir operation.
 
     This policy infers release rules using STARFIT-derived operating parameters.
+    STARFIT is a seasonal time series model that uses harmonic adjustments to
+    determine reservoir releases.
+
+    Attributes:
+        Reservoir (Reservoir): The reservoir instance associated with the policy.
+        policy_params (dict): Dictionary containing STARFIT parameters.
+        S_cap (float): Total capacity of the reservoir.
+        I_bar (float): Mean annual inflow to the reservoir.
+        R_max (float): Maximum release from the reservoir.
+        R_min (float): Minimum release from the reservoir.
+        NORhi_mu (float): Mean upper Normal Operating Range (NOR) bound.
+        NORhi_min (float): Minimum upper NOR bound.
+        NORhi_max (float): Maximum upper NOR bound.
+        NORhi_alpha (float): Alpha parameter for upper NOR bound.
+        NORhi_beta (float): Beta parameter for upper NOR bound.
+        NORlo_mu (float): Mean lower NOR bound.
+        NORlo_min (float): Minimum lower NOR bound.
+        NORlo_max (float): Maximum lower NOR bound.
+        NORlo_alpha (float): Alpha parameter for lower NOR bound.
+        NORlo_beta (float): Beta parameter for lower NOR bound.
+        Release_alpha1 (float): Alpha1 parameter for seasonal release adjustment.
+        Release_alpha2 (float): Alpha2 parameter for seasonal release adjustment.
+        Release_beta1 (float): Beta1 parameter for seasonal release adjustment.
+        Release_beta2 (float): Beta2 parameter for seasonal release adjustment.
+        Release_c (float): C parameter for seasonal release adjustment.
+        Release_p1 (float): P1 parameter for seasonal release adjustment.
+        Release_p2 (float): P2 parameter for seasonal release adjustment.
+        start_month (str): Starting month for harmonic calculations.
+        starfit_name (str): Name of the STARFIT reservoir.
+
+
     """
 
     def __init__(self, Reservoir, policy_params):
         """
-        Initializes the STARFIT policy.
+        Initialize STARFIT policy with reservoir reference and parameters array.
 
         Args:
-            Reservoir (Reservoir): The reservoir instance.
+            Reservoir (Reservoir): Reservoir instance associated with the policy.
             policy_params (dict): Dictionary containing STARFIT parameters.
+            starfit_df (pd.DataFrame): DataFrame containing STARFIT parameters.
+            reservoir_name (str): Name of the reservoir associated with STARFIT parameters.
         """
         self.Reservoir = Reservoir
+        self.reservoir_name = self.Reservoir.name if hasattr(self.Reservoir, "name") else None
+        if self.reservoir_name is None:
+            raise ValueError("Reservoir object must have a 'name' attribute.")
+        self.starfit_df = pd.read_csv("data/drb_model_istarf_conus.csv")
+        self.load_starfit_params()
         self.policy_params = policy_params
-        self.parse_policy_params()
-
-    def validate_policy_params(self):
-        """
-        Validates the STARFIT policy parameters.
-        Ensures all required parameters exist in starfit_df.
-        """
-        if "starfit_df" not in self.policy_params:
-            raise ValueError("STARFIT policy requires 'starfit_df' in policy_params.")
-
-        df = self.policy_params["starfit_df"]
-        required_columns = [
-            "reservoir", "GRanD_CAP_MG", "GRanD_MEANFLOW_MGD",
-            "Release_max", "Release_min", "NORhi_mu", "NORhi_min", "NORhi_max",
-            "NORhi_alpha", "NORhi_beta", "NORlo_mu", "NORlo_min", "NORlo_max",
-            "NORlo_alpha", "NORlo_beta", "Release_alpha1", "Release_alpha2",
-            "Release_beta1", "Release_beta2", "Release_c", "Release_p1", "Release_p2"
-        ]
-
-        for col in required_columns:
-            if col not in df.columns:
-                raise ValueError(f"Missing required STARFIT column: {col}")
+        self.parse_policy_params(policy_params)
     
-
-    def parse_policy_params(self):
+    def load_starfit_params(self):
         """
-        Parses STARFIT parameters and assigns them for calculations.
+        Load known parameters (S_cap, I_bar, R_max, R_min) from the STARFIT CSV.
         """
-        self.validate_policy_params()
-        df = self.policy_params["starfit_df"]
-        reservoir_name = self.policy_params["reservoir_name"]
+        if self.reservoir_name not in self.starfit_df["reservoir"].values:
+            raise ValueError(f"STARFIT parameters not found for '{self.reservoir_name}'. Check spelling!")
 
-        # Use modified STARFIT parameters for DRBC reservoirs
-        modified_starfit_reservoir_list = ["blueMarsh", "fewalter", "beltzvilleCombined"]
-    
-        if reservoir_name in modified_starfit_reservoir_list:
-            self.starfit_name = "modified_" + reservoir_name
-        else:
-            self.starfit_name = reservoir_name
-
-        if self.starfit_name not in df["reservoir"].values:
-            raise ValueError(f"STARFIT parameters not found for '{self.starfit_name}'. Check spelling in CSV.")
-
-
-        # Debugging: Print the first few rows of STARFIT DataFrame
-        print("\nSTARFIT DataFrame Preview:")
-        print(df.head())
-
-        # Ensure the reservoir exists in the dataset
-        if reservoir_name not in df["reservoir"].values:
-            raise ValueError(f"STARFIT parameters not found for reservoir '{reservoir_name}'. Check spelling!")
-
-        res_data = df[df["reservoir"] == reservoir_name].iloc[0]
-
-        # Debug: Print loaded parameters
-        print(f"\nLoading STARFIT parameters for reservoir: {reservoir_name}")
-        print(res_data)
+        res_data = self.starfit_df[self.starfit_df["reservoir"] == self.reservoir_name].iloc[0]
 
         # Assign storage & inflow parameters
-
-        # Use adjusted storage values if available
         if not pd.isna(res_data["Adjusted_CAP_MG"]) and not pd.isna(res_data["Adjusted_MEANFLOW_MGD"]):
             self.S_cap = res_data["Adjusted_CAP_MG"]
             self.I_bar = res_data["Adjusted_MEANFLOW_MGD"]
         else:
             self.S_cap = res_data["GRanD_CAP_MG"]
             self.I_bar = res_data["GRanD_MEANFLOW_MGD"]
+
+        # Calculate R_min and R_max
         self.R_max = (res_data["Release_max"] + 1) * self.I_bar
         self.R_min = (res_data["Release_min"] + 1) * self.I_bar
 
-        # Print Loaded STARFIT Parameters for Debugging
-        print(f"\nLoaded STARFIT Params for {self.starfit_name}:")
-        print(f"  S_cap = {self.S_cap}, I_bar = {self.I_bar}")
-        print(f"  R_max = {self.R_max}, R_min = {self.R_min}")
+    
+    def parse_policy_params(self, policy_params):
+        """
+        Parses STARFIT parameters from an array.
+        """
+        if len(policy_params) != 17:
+            raise ValueError(f"Expected 17 parameters, but received {len(policy_params)}.")
 
-        # Normal Operating Range (NOR) Parameters
-        self.NORhi_mu, self.NORhi_min, self.NORhi_max = res_data["NORhi_mu"], res_data["NORhi_min"], res_data["NORhi_max"]
-        self.NORhi_alpha, self.NORhi_beta = res_data["NORhi_alpha"], res_data["NORhi_beta"]
-        self.NORlo_mu, self.NORlo_min, self.NORlo_max = res_data["NORlo_mu"], res_data["NORlo_min"], res_data["NORlo_max"]
-        self.NORlo_alpha, self.NORlo_beta = res_data["NORlo_alpha"], res_data["NORlo_beta"]
+        # Unpack the array into the expected order
+        (
+            self.NORhi_mu, self.NORhi_min, self.NORhi_max, 
+            self.NORhi_alpha, self.NORhi_beta,
+            self.NORlo_mu, self.NORlo_min, self.NORlo_max,
+            self.NORlo_alpha, self.NORlo_beta,
+            self.Release_alpha1, self.Release_alpha2,
+            self.Release_beta1, self.Release_beta2,
+            self.Release_c, self.Release_p1, self.Release_p2
+        ) = policy_params
+    
 
-        # Seasonal release parameters
-        self.Release_alpha1, self.Release_alpha2 = res_data["Release_alpha1"], res_data["Release_alpha2"]
-        self.Release_beta1, self.Release_beta2 = res_data["Release_beta1"], res_data["Release_beta2"]
-        self.Release_c, self.Release_p1, self.Release_p2 = res_data["Release_c"], res_data["Release_p1"], res_data["Release_p2"]
-
-        # Starting month for harmonic calculations
-        self.start_month = self.policy_params.get("start_month", "Oct")
+    def validate_policy_params(self):
+        """
+        Ensures all required parameters are assigned correctly.
+        """
+        required_params = [
+            "NORhi_mu", "NORhi_min", "NORhi_max", "NORhi_alpha", "NORhi_beta",
+            "NORlo_mu", "NORlo_min", "NORlo_max", "NORlo_alpha", "NORlo_beta",
+            "Release_alpha1", "Release_alpha2", "Release_beta1", "Release_beta2",
+            "Release_c", "Release_p1", "Release_p2", 
+            "S_cap", "I_bar", "R_min", "R_max"
+        ]
+        
+        for param in required_params:
+            if not hasattr(self, param):
+                raise ValueError(f"Missing required parameter '{param}' in STARFIT class.")
+    
 
     def sinNpi(self, day, N):
         """
@@ -187,33 +196,4 @@ class STARFIT(AbstractPolicy):
         Args:
             fname (str): Filename to save the plot. Default is "STARFIT_Release_TimeSeries.png".
         """
-        import matplotlib.pyplot as plt
-        import os
-        
-        # Ensure we have valid data
-        if len(self.Reservoir.release_array) == 0:
-            raise ValueError("Release data is empty. Ensure the simulation has been run.")
-
-        # Time series (assuming daily)
-        timesteps = np.arange(len(self.Reservoir.release_array))
-
-        # Create figure
-        fig, ax = plt.subplots(figsize=(10, 5))
-    
-        # Plot STARFIT simulated releases
-        ax.plot(timesteps, self.Reservoir.release_array, label="STARFIT Release", color="r")
-
-        # Labels & legend
-        ax.set_xlabel("Time (days)")
-        ax.set_ylabel("Release (MGD)")
-        ax.set_title(f"STARFIT Release - {self.policy_params['reservoir_name']}")
-        ax.legend()
-        ax.grid()
-
-        # Save the figure
-        save_path = os.path.join("figures", fname)
-        os.makedirs("figures", exist_ok=True)  # Ensure directory exists
-        plt.savefig(save_path, dpi=300)
-        print(f"Plot saved to: {save_path}")
-
-        plt.show()
+        pass

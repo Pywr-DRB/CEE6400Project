@@ -1,21 +1,17 @@
 import pandas as pd
 
-# Define the inflow and demand timeseries
 def load_observations(datatype,
                       reservoir_name=None,
-                      data_dir = "../../data/",
-                      as_numpy=False):
+                      data_dir = "./data/"):
     """
     Loads observational data (inflow, storage or release).
     
     Args:
         datatype (str): The type of data to load. Must be 'inflow', 'storage' or 'release'.
         reservoir_name (str): Name of the reservoir to load data for. If None, all data is returned.
-        as_numpy (bool): If True, return data as a numpy array. If False, return as a pandas DataFrame.
-
-
+    
     Returns:
-        np.array: Inflow timeseries for the given reservoir.
+        np.array: Inflow timeseries for the given reservoir as a numpy array.
     """
     if datatype not in ["inflow", "storage", "release"]:
         raise ValueError(f"Invalid datatype '{datatype}'. Must be 'inflow', 'storage' or 'release'.")
@@ -28,8 +24,6 @@ def load_observations(datatype,
         raise ValueError(f"Reservoir '{reservoir_name}' not found in {filepath}. Check CSV headers.")
     
     if reservoir_name is None:
-        return df
-    elif as_numpy:
-        return df[reservoir_name].values
+        return df.to_numpy()  # Return the whole DataFrame as a numpy array
     else:
-        return df[[reservoir_name]]
+        return df[reservoir_name].values  # Return the specified reservoir's data as a numpy array

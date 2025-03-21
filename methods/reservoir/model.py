@@ -1,5 +1,6 @@
 import numpy as np
 from methods.policies import PiecewiseLinear, RBF, STARFIT
+from methods.utils.conversions import cfs_to_mgd
 
 
 class Reservoir():
@@ -10,7 +11,8 @@ class Reservoir():
                  policy_params,
                  release_min = None,
                  release_max = None,
-                 initial_storage = None):
+                 initial_storage = None,
+                 name = None):
         """
         Reservoir model class, used to simulate the operation of a reservoir.
         
@@ -54,10 +56,20 @@ class Reservoir():
         
         # Reservoir characteristics
         self.capacity = capacity
-        self.release_max = release_max
-        self.release_min = release_min
         self.initial_storage = 0.8 * capacity if initial_storage is None else initial_storage
+        
+        # Conservation releases
+        conservation_releases = {
+            "blueMarsh": cfs_to_mgd(50),
+            "beltzvilleCombined": cfs_to_mgd(35),
+            "nockamixon": cfs_to_mgd(11),
+            "fewalter": cfs_to_mgd(50),
+        }
 
+        self.name = name 
+        self.release_max = release_max
+        self.release_min = release_min if release_min else conservation_releases.get(self.name, 0) 
+  
         # reset simulation variables
         self.reset()
         
