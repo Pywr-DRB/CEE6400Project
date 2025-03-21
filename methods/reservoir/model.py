@@ -167,3 +167,8 @@ class Reservoir():
                 self.spill_array[t] = 0.0
             
         return
+
+
+    def plot(self):
+        # Plot simulation dynamics
+        pass

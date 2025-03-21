@@ -137,8 +137,11 @@ class PiecewiseLinear(AbstractPolicy):
         """
         Plots the piecewise linear policy function.
         """
+        
         fig, ax = plt.subplots()
+        
         xs = np.linspace(0.0, self.Reservoir.capacity, 100)
+
         ys = [self.evaluate(x) for x in xs]
 
         ax.plot(xs, ys)
