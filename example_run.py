@@ -12,6 +12,8 @@ reservoir_name = "blueMarsh"
 # Load inflow & STARFIT data
 inflow = load_observations(datatype='inflow', reservoir_name=reservoir_name, data_dir="./data/")
 
+# Load actual observed release data
+observed = load_observations(datatype='release', reservoir_name=reservoir_name, data_dir="./data/")
 
 # Sets of test parameters
 test_params = {
@@ -46,9 +48,9 @@ reservoir.run()
 
 reservoir.policy.plot()
 
-# Mock observed and simulated data
-observed = np.array([1, 2, 3, 4, 5])
-simulated = np.array([1.1, 2.1, 2.9, 3.8, 4.9])
+# Get simulated release data
+simulated = reservoir.release_array  
+
 
 # Initialize ObjectiveCalculator with all metrics you want to test
 metrics_to_test = ['nse', 'rmse', 'kge']
