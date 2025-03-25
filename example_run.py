@@ -5,15 +5,17 @@ import pandas as pd
 from methods.load import load_observations
 
 from methods.metrics.objectives import ObjectiveCalculator
+from config import reservoir_min_release, reservoir_max_release, reservoir_capacity
 
 # Set reservoir name
-reservoir_name = "blueMarsh"
+RESERVOIR_NAME = 'fewalter'
+POLICY_TYPE = "STARFIT"
 
 # Load inflow & STARFIT data
-inflow = load_observations(datatype='inflow', reservoir_name=reservoir_name, data_dir="./data/")
+inflow = load_observations(datatype='inflow', reservoir_name=RESERVOIR_NAME, data_dir="./data/", as_numpy=True)
 
 # Load actual observed release data
-observed = load_observations(datatype='release', reservoir_name=reservoir_name, data_dir="./data/")
+observed = load_observations(datatype='release', reservoir_name=RESERVOIR_NAME, data_dir="./data/", as_numpy=True)
 
 # Sets of test parameters
 test_params = {
@@ -27,19 +29,17 @@ test_params = {
     ])}
 
 
-test_policy = "STARFIT"
-
 
 # Define the reservoir
 reservoir = Reservoir(
     inflow = inflow,
-    capacity = 10,
-    policy_type = test_policy,
-    policy_params = test_params[test_policy],
-    release_min = 0,
-    release_max = 8,
+    capacity = reservoir_capacity[RESERVOIR_NAME],
+    policy_type = POLICY_TYPE,
+    policy_params = test_params[POLICY_TYPE],
+    release_min = reservoir_min_release[RESERVOIR_NAME],
+    release_max =  reservoir_max_release[RESERVOIR_NAME],
     initial_storage = None,
-    name = reservoir_name
+    name = RESERVOIR_NAME,
 )
 
 

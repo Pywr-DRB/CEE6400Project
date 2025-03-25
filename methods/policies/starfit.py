@@ -2,6 +2,7 @@ from methods.policies.abstract_policy import AbstractPolicy
 import numpy as np
 import pandas as pd
 from math import sin, cos, pi
+import matplotlib.pyplot as plt
 
 class STARFIT(AbstractPolicy):
     """
@@ -196,4 +197,21 @@ class STARFIT(AbstractPolicy):
         Args:
             fname (str): Filename to save the plot. Default is "STARFIT_Release_TimeSeries.png".
         """
-        pass
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        # Extract relevant data
+        storage = self.Reservoir.storage_array
+        release = self.Reservoir.release_array
+
+        # Scatter plot of storage vs. release
+        ax.scatter(storage, release, s=10, color='blue', alpha=0.7, label='Simulated Data Points')
+        
+        # Plot formatting
+        ax.set_title(f"STARFIT Policy Curve - Storage vs Release ({self.reservoir_name})")
+        ax.set_xlabel("Storage (MG)")
+        ax.set_ylabel("Release (MGD)")
+        ax.legend(loc="upper right")
+        
+        # Save and show plot
+        plt.savefig(f"./figures/{fname}")
+        plt.show()
