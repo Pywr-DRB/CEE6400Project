@@ -30,8 +30,13 @@ class ObjectiveCalculator():
             'kge', 'pbias',
             ]
         for m in metrics:
+            # log-transformed metrics
             valid_metrics.append(f'log_{m}')
-        
+
+            # low- and high-flow metrics
+            valid_metrics.append(f'Q20_{m}') # calculated using <20th percentile obs
+            valid_metrics.append(f'Q80_{m}') # calculated using >80th percentile obs
+            
         # check that all metrics are valid
         for m in metrics:
             if m not in valid_metrics:
@@ -59,16 +64,28 @@ class ObjectiveCalculator():
         
         objs = []
         for metric in self.metrics:
+            
             # Check if the metric is log-transformed
             log = True if 'log' in metric else False
             
+            # subset the data for low- and high-flow metrics
+            if 'Q20' in metric:
+                obs = obs[obs < np.percentile(obs, 20)]
+                sim = sim[obs < np.percentile(obs, 20)]
+            elif 'Q80' in metric:
+                obs = obs[obs > np.percentile(obs, 80)]
+                sim = sim[obs > np.percentile(obs, 80)]
+            
+            # calculate the objective value based on the metric
+            # add it to the list of objective outputs
             if 'nse' in metric:
                 objs.append(self.nse(obs=obs, sim=sim, log=log))
             elif 'rmse' in metric:
                 objs.append(self.rmse(obs=obs, sim=sim, log=log))
             elif 'kge' in metric:
                 objs.append(self.kge(obs=obs, sim=sim, log=log))
-                
+            elif 'pbias' in metric:
+                objs.append(self.pbias(obs=obs, sim=sim, log=log))
             else:
                 raise ValueError(f"Invalid metric: {metric}")
         
