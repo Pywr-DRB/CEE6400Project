@@ -26,7 +26,7 @@ from config import reservoir_min_release, reservoir_max_release, reservoir_capaq
 from borg import *
 Configuration.startMPI()
 
-root_dir = os.path.expanduser("~/Github/BorgTraining")
+# root_dir = os.path.expanduser("~/Github/BorgTraining")
 pn = PathNavigator(root_dir)
 pn.chdir()
 

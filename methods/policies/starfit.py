@@ -4,6 +4,9 @@ import pandas as pd
 from math import sin, cos, pi
 import matplotlib.pyplot as plt
 
+from methods.config import policy_n_params, policy_param_bounds
+
+
 class STARFIT(AbstractPolicy):
     """
     STARFIT policy class for reservoir operation.
@@ -58,6 +61,11 @@ class STARFIT(AbstractPolicy):
             raise ValueError("Reservoir object must have a 'name' attribute.")
         self.starfit_df = pd.read_csv("data/drb_model_istarf_conus.csv")
         self.load_starfit_params()
+        
+        # Number of parameters and their bounds
+        self.n_params = policy_n_params["STARFIT"]
+        self.param_bounds = policy_param_bounds["STARFIT"]
+        
         self.policy_params = policy_params
         self.parse_policy_params(policy_params)
     
@@ -87,7 +95,7 @@ class STARFIT(AbstractPolicy):
         """
         Parses STARFIT parameters from an array.
         """
-        if len(policy_params) != 17:
+        if len(policy_params) != self.n_params:
             raise ValueError(f"Expected 17 parameters, but received {len(policy_params)}.")
 
         # Unpack the array into the expected order
@@ -100,12 +108,26 @@ class STARFIT(AbstractPolicy):
             self.Release_beta1, self.Release_beta2,
             self.Release_c, self.Release_p1, self.Release_p2
         ) = policy_params
+        
+        self.validate_policy_params()
     
 
     def validate_policy_params(self):
         """
         Ensures all required parameters are assigned correctly.
         """
+        
+        # Check if the number of parameters is correct
+        assert len(self.policy_params) == self.n_params, \
+            f"RBF policy expected {self.n_params} parameters, got {len(self.policy_params)}."
+        
+        # check parameter bounds
+        for i, p in enumerate(self.policy_params):
+            bounds = self.param_bounds[i]
+            assert (p >= bounds[0]) and (p <= bounds[1]), \
+                f"Parameter with index {i} is out of bounds {bounds}. Value: {p}."
+        
+        # check that attributes are set
         required_params = [
             "NORhi_mu", "NORhi_min", "NORhi_max", "NORhi_alpha", "NORhi_beta",
             "NORlo_mu", "NORlo_min", "NORlo_max", "NORlo_alpha", "NORlo_beta",

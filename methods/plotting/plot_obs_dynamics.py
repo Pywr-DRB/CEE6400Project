@@ -4,7 +4,8 @@ import numpy as np
 
 
 
-def plot_obs_reservoir_dynamics(I, S, R, reservoir_name, 
+def plot_obs_reservoir_dynamics(I, S, R, 
+                                reservoir_name, 
                                 start_date = None,
                                 end_date = None,
                                 timescale = 'daily',

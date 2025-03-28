@@ -1,4 +1,7 @@
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
 from methods.policies import PiecewiseLinear, RBF, STARFIT
 from methods.utils.conversions import cfs_to_mgd
 
@@ -11,6 +14,8 @@ class Reservoir():
                  policy_params,
                  release_min = None,
                  release_max = None,
+                 inflow_max = None,
+                 inflow_min = None,
                  initial_storage = None,
                  name = None):
         """
@@ -34,6 +39,10 @@ class Reservoir():
             Minimum release constraint. Default is None.
         release_max : float, optional
             Maximum release constraint. Default is None.
+        inflow_max : float, optional
+            Maximum inflow used for scaling inflow inputs. If None, use max of observations.
+        inflow_min : float, optional
+            Minimum inflow used for scaling inflow inputs. If None, use 0.0.
         initial_storage : float, optional
             Initial storage level of the reservoir. Default is 0.8 * capacity.
             
@@ -49,6 +58,10 @@ class Reservoir():
         -------
         None
         """
+        try:
+            inflow = np.array(inflow).flatten()
+        except Exception as e:
+            raise ValueError(f"Inflow must be a 1D array. Got {inflow.shape}") from e
         
         # Input timeseries
         self.inflow_array = inflow
@@ -70,6 +83,9 @@ class Reservoir():
         self.release_max = release_max
         self.release_min = release_min if release_min else conservation_releases.get(self.name, 0) 
   
+        self.inflow_max = np.max(inflow) if inflow_max is None else inflow_max
+        self.inflow_min = 0.0 if inflow_min is None else inflow_min
+  
         # reset simulation variables
         self.reset()
         
@@ -85,7 +101,6 @@ class Reservoir():
         self.storage_array = np.zeros(self.T)
         self.release_array = np.zeros(self.T)
         self.spill_array = np.zeros(self.T)
-        self.storage_array[0] = self.initial_storage
         return
     
     def initalize_policy(self, 
@@ -148,7 +163,7 @@ class Reservoir():
             raise ValueError("Policy not initialized.")
         
         # run simulation
-        for t in range(1, self.T):
+        for t in range(0, self.T):
             # get target release from policy
             release_target = self.get_release(timestep=t)
             
@@ -157,7 +172,10 @@ class Reservoir():
             self.release_array[t] = release_allowable
 
             # update
-            self.storage_array[t] = self.storage_array[t-1] + self.inflow_array[t] - self.release_array[t]
+            if t == 0:
+                self.storage_array[t] = self.initial_storage + self.inflow_array[t] - self.release_array[t]
+            else:
+                self.storage_array[t] = self.storage_array[t-1] + self.inflow_array[t] - self.release_array[t]
 
             # Check for spill
             if self.storage_array[t] > self.capacity:
@@ -165,10 +183,76 @@ class Reservoir():
                 self.storage_array[t] = self.capacity
             else:
                 self.spill_array[t] = 0.0
-            
+        
+        # format results in a dataframe
+        self.results = self.results()
+        
         return
 
+    def results(self):
+        # Make a pd.DataFrame of the results
+        results = {
+            "inflow": self.inflow_array,
+            "release": self.release_array,
+            "storage": self.storage_array,
+            "spill": self.spill_array
+        }
+        
+        results = pd.DataFrame(results)
+        
+        return results
 
-    def plot(self):
-        # Plot simulation dynamics
-        pass
+    def plot(self,
+             fname=None,
+             save=False,
+             storage_obs=None,
+             release_obs=None,
+             release_log_scale=True,
+             release_smooth_window=None):
+        """
+        Plot storage and release data.
+        
+        Args:
+            storage_obs (pd.Series): Observed storage data for the simulation period.
+            release_obs (pd.Series): Observed release data for the simulation period.
+            save (bool): Whether to save the plot as a file.
+            fname (str): Filename for saving the plot.
+        
+        """
+        
+        storage_sim = self.storage_array
+        release_sim = self.release_array
+        
+        
+        ### plot simulated and obs storage and release
+        fig, ax = plt.subplots(2, 1, figsize=(10, 8),
+                                sharex=True)
+        
+        ax[0].plot(storage_obs, label='Observed', color='blue', alpha=0.5)
+        ax[0].plot(storage_sim, label='Simulated', color='orange', alpha=0.5)
+        ax[0].set_ylabel('Storage (MGD)')
+        ax[0].set_xlim(0, self.T)
+        
+        # smooth releases
+        if release_smooth_window is not None:
+            w = release_smooth_window
+            release_obs = pd.Series(release_obs.flatten()).rolling(window=w).mean().values
+            release_sim = pd.Series(release_sim.flatten()).rolling(window=w).mean().values
+        
+        ax[1].plot(release_obs, label='Observed', color='blue', alpha=0.5)
+        ax[1].plot(release_sim, label='Simulated', color='orange', alpha=0.5)
+        if release_log_scale:
+            ax[1].set_yscale('log')
+
+        ax[1].set_ylabel('Release (MGD)')
+        
+        ax[1].set_xlabel('Time')
+        ax[0].legend()
+        
+        if save:
+            if fname is None:
+                raise ValueError("Filename must be provided when save=True.")
+            plt.savefig(fname, dpi=300)
+        
+        plt.tight_layout()
+        plt.show()

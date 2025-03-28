@@ -1,1 +1,1 @@
-from .timeseries import get_overlapping_datetime_indices
+from .get_date_ranges import get_overlapping_datetime_indices

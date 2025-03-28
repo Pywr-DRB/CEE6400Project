@@ -7,6 +7,10 @@ class ObjectiveCalculator():
     """
     Used to calculate objectives used for policy parameter optimization.
     
+    Each metric is transformed such that minimization is best;
+    for example 'neg_nse' is the negative of the NSE, 
+    and -1.0 would be a perfect match.
+    
     Example usage:
     ObjFunc = ObjectiveCalculator(metrics=['nse', 'rmse', 'kge'])
     obs = [1, 2, 3, 4, 5]
@@ -25,11 +29,14 @@ class ObjectiveCalculator():
                  metrics):
         
         # all valid metrics
+        
         valid_metrics = [
-            'nse', 'rmse', 
-            'kge', 'pbias',
+            'neg_nse', 'rmse', 
+            'neg_kge', 'abs_pbias',
             ]
-        for m in metrics:
+        
+        for m in valid_metrics.copy():
+            
             # log-transformed metrics
             valid_metrics.append(f'log_{m}')
 
@@ -78,14 +85,19 @@ class ObjectiveCalculator():
             
             # calculate the objective value based on the metric
             # add it to the list of objective outputs
+            # metrics are transformed such that minimization is best
             if 'nse' in metric:
-                objs.append(self.nse(obs=obs, sim=sim, log=log))
+                o = self.nse(obs=obs, sim=sim, log=log)
+                objs.append(-o)             
             elif 'rmse' in metric:
-                objs.append(self.rmse(obs=obs, sim=sim, log=log))
+                o = self.rmse(obs=obs, sim=sim, log=log)
+                obs.append(o)
             elif 'kge' in metric:
-                objs.append(self.kge(obs=obs, sim=sim, log=log))
+                o = self.kge(obs=obs, sim=sim, log=log)
+                objs.append(-o[0])                
             elif 'pbias' in metric:
-                objs.append(self.pbias(obs=obs, sim=sim, log=log))
+                o = self.pbias(obs=obs, sim=sim, log=log)
+                objs.append(abs(o))
             else:
                 raise ValueError(f"Invalid metric: {metric}")
         
