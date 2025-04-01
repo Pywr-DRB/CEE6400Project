@@ -50,9 +50,9 @@ EPSILONS = EPSILONS + EPSILONS
 
 ### Borg Settings
 NCONSTRS = 0
-NFE = 5000            # Number of function evaluation 
+NFE = 10000            # Number of function evaluation 
 runtime_freq = 250      # output frequency
-islands = 1             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
+islands = 3             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
 borg_seed = SEED
 
 
@@ -173,8 +173,11 @@ if __name__ == "__main__":
     pn.mkdir("outputs") 
     pn.outputs.mkdir("checkpoints")
 
-    fname_base = pn.outputs.get() / f"{POLICY_TYPE}_{RESERVOIR_NAME}_nfe{NFE}_seed{borg_seed}"
-
+    if islands == 1:
+        fname_base = pn.outputs.get() / f"MWBorg_{POLICY_TYPE}_{RESERVOIR_NAME}_nfe{NFE}_seed{borg_seed}"
+    else:
+        fname_base = pn.outputs.get() / f"MMBorg_{islands}M_{POLICY_TYPE}_{RESERVOIR_NAME}_nfe{NFE}_seed{borg_seed}"
+    
     # Runtime
     if islands == 1: # Master slave version
         runtime_filename = f"{fname_base}.runtime"
