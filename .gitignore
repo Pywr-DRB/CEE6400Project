@@ -21,7 +21,7 @@ venv*
 wsl_venv*
 /venv*
 
-./MMBorgMOEA/
-./lib*
+MMBorgMOEA/
+lib*
 borg.py
 MOEAFramework-5.0/

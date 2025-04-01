@@ -1,0 +1,12 @@
+java -cp MOEAFramework-4.5-Demo.jar org.moeaframework.analysis.tools.ResultFileMerger --dimension 8 --output borg_test.set --epsilon 0.00001,0.00001,0.00001,0.01,0.01,0.01,0.01,0.01 dps_borg_id106628_nfe10000_seedNone_0.runtime
+
+java -cp MOEAFramework-4.5-Demo.jar org.moeaframework.analysis.tools.ReferenceSetMerger --output borg_test.ref --epsilon 0.00001,0.00001,0.00001,0.01,0.01,0.01,0.01,0.01 borg_test.set
+
+java -cp MOEAFramework-4.5-Demo.jar org.moeaframework.analysis.tools.ResultFileEvaluator --dimension 8 --epsilon 0.00001,0.00001,0.00001,0.01,0.01,0.01,0.01,0.01 --input dps_borg_id106628_nfe10000_seedNone_0.runtime --reference borg_test.ref --output borg_test.metrics
+
+
+java -cp MOEAFramework-4.5-Demo.jar org.moeaframework.analysis.tools.ResultFileMerger --help
+java -cp MOEAFramework-4.5-Demo.jar org.moeaframework.analysis.tools.ResultFileEvaluator --help
+
+java on windows
+https://www.oracle.com/java/technologies/downloads/#jdk23-windows

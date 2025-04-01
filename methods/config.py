@@ -13,6 +13,30 @@ DEBUG = True
 cfs_to_mgd = 0.645932368556
 
 
+### MOEA Objectives ##########
+
+# Metrics used for Borg
+METRICS = [
+    'neg_nse',           # Negative Nash Sutcliffe Efficiency
+    'abs_pbias',         # Absolute Percent Bias
+]
+
+
+metric_epsilons = {
+    'neg_nse': 0.01,
+    'neg_kge': 0.01,
+    'abs_pbias': 1.0,
+    'rmse': 1.0,
+}
+
+for m in METRICS:
+    for q in ["Q20", "Q80"]:
+        metric_epsilons[f"{q}_{m}"] = metric_epsilons[m]
+    metric_epsilons[f"log_{m}"] = metric_epsilons[m]
+
+EPSILONS = [metric_epsilons[m] for m in METRICS]
+
+
 ### Reservoirs ###############
 reservoir_options = [
     'blueMarsh',
