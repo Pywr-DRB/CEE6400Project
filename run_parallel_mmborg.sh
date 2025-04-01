@@ -1,12 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=ResBorg        # Job name
-#SBATCH --output=./logs/ResBorg.out  
-#SBATCH --error=./logs/ResBorg.err   
-#SBATCH --nodes=2                          # Number of nodes to use
-#SBATCH --ntasks-per-node=40               # Number of tasks (processes) per node
-#SBATCH --exclusive                        # Use the node exclusively for this job
-
-# Remember to create ./logs/ first!
+#SBATCH --job-name=ResBorg
+#SBATCH --output=./logs/ResBorg.out
+#SBATCH --error=./logs/ResBorg.err
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=40
+#SBATCH --exclusive
 
 # Load Python module
 module load python/3.11.5
@@ -14,23 +12,34 @@ module load python/3.11.5
 # Activate Python virtual environment
 source venv/bin/activate
 
-# Function to submit the job
+# Define function to submit a single job iteration
 submit_job() {
-    # Print start message and the number of nodes and tasks per node
+    local POLICY_TYPE=$1
+    local RESERVOIR_NAME=$2
+
     datetime=$(date '+%Y-%m-%d %H:%M:%S')
     n_processors=$(($SLURM_NNODES * $SLURM_NTASKS_PER_NODE))
 
-    echo "Number of nodes: $SLURM_NNODES"
-    echo "Tasks per node: $SLURM_NTASKS_PER_NODE"
-    echo "Total number of processors: $n_processors"
+    echo "Running: POLICY_TYPE=$POLICY_TYPE, RESERVOIR_NAME=$RESERVOIR_NAME"
     echo "Datetime: $datetime"
+    echo "Total processors: $n_processors"
 
-    # Run the script with MPI and time the execution
-    time mpirun --oversubscribe -np $n_processors python parallel_borg_run.py $SLURM_JOB_ID
-
-    # Ensure the job finishes before proceeding to the next
+    # Run with MPI
+    time mpirun --oversubscribe -np $n_processors python parallel_borg_run.py "$POLICY_TYPE" "$RESERVOIR_NAME"
+    
+    echo "Finished: POLICY_TYPE=$POLICY_TYPE, RESERVOIR_NAME=$RESERVOIR_NAME"
+    echo "#############################################"
+    
     wait
 }
 
+# Arrays of policy types and reservoir names
+POLICY_TYPES=("RBF" "PiecewiseLinear")
+RESERVOIR_NAMES=("fewalter")
 
-submit_job
+# Loop through all combinations
+for POLICY_TYPE in "${POLICY_TYPES[@]}"; do
+    for RESERVOIR_NAME in "${RESERVOIR_NAMES[@]}"; do
+        submit_job "$POLICY_TYPE" "$RESERVOIR_NAME"
+    done
+done
