@@ -19,7 +19,7 @@ from methods.sampling import generate_policy_param_samples
 
 # Policies to test
 test_policies = [
-    # "RBF",
+    "RBF",
     "PiecewiseLinear"
 ]
 

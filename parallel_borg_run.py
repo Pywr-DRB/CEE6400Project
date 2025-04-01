@@ -23,12 +23,6 @@ from methods.config import reservoir_min_release, reservoir_max_release, reservo
 from methods.config import policy_n_params, policy_param_bounds
 from methods.config import SEED, METRICS, EPSILONS
 
-from methods.moea.evaluate import get_evaluation_function
-
-
-##### Set for parallel borg
-from borg import *
-Configuration.startMPI()
 
 root_dir = os.path.expanduser("./")
 pn = PathNavigator(root_dir)
@@ -56,19 +50,86 @@ runtime_freq = 250      # output frequency
 islands = 1             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
 
 
-### Evaluation function: function(*vars) -> (objs, constrs)
-evaluate_func = get_evaluation_function(
-    RESERVOIR_NAME, 
-    POLICY_TYPE, 
-    METRICS
-)
+### Load observed data #######################################
+
+inflow_obs = load_observations(datatype='inflow', 
+                            reservoir_name=RESERVOIR_NAME, 
+                            data_dir="./data/", as_numpy=False)
+
+release_obs = load_observations(datatype='release', 
+                                reservoir_name=RESERVOIR_NAME, 
+                                data_dir="./data/", as_numpy=False)
+
+storage_obs = load_observations(datatype='storage',
+                                reservoir_name=RESERVOIR_NAME, 
+                                data_dir="./data/", as_numpy=False)
+
+
+
+# get overlapping datetime indices, 
+# when all data is available for this reservoir
+dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
+
+# subset data
+inflow_obs = inflow_obs.loc[dt,:].values
+release_obs = release_obs.loc[dt,:].values
+storage_obs = storage_obs.loc[dt,:].values
+
+
+# Setup objective function
+obj_func = ObjectiveCalculator(metrics=METRICS)
+
+
+### Evaluation function: 
+# function(*vars) -> (objs, constrs)
+def evaluate(*vars):
+    """
+    Runs one reservoir operation function evaluation.
+    
+    Args:
+        *vars: The reservoir policy parameters to evaluate.
+        
+    Returns:
+        tuple: The objective values
+    """
+    ### Setup reservoir
+    reservoir = Reservoir(
+        inflow = inflow_obs,
+        capacity = reservoir_capacity[RESERVOIR_NAME],
+        policy_type = POLICY_TYPE,
+        policy_params = list(vars),
+        release_min = reservoir_min_release[RESERVOIR_NAME],
+        release_max = reservoir_max_release[RESERVOIR_NAME],
+        initial_storage = storage_obs[0],
+        name = RESERVOIR_NAME,
+    )
+    
+    # Re-assign the reservoir policy params
+    reservoir.policy.policy_params = list(vars)
+    reservoir.policy.parse_policy_params()
+    
+    # Reset the reservoir simulation
+    reservoir.reset()
+    
+    # Run the simulation
+    reservoir.run()
+    
+    # Retrieve simulated release data
+    sim_release = reservoir.release_array
+    sim_storage = reservoir.storage_array 
+    
+    # Calculate the objectives
+    objectives = obj_func.calculate(obs=release_obs, 
+                                    sim=sim_release)
+    
+    return objectives,
 
 
 borg_settings = {
     "numberOfVariables": NVARS,
     "numberOfObjectives": NOBJS,
     "numberOfConstraints": NCONSTRS,
-    "function": evaluate_func,
+    "function": evaluate,
     "epsilons": EPSILONS,
     "bounds": BOUNDS,
     "directions": None,  # default is to minimize all objectives. keep this unchanged.
@@ -76,20 +137,24 @@ borg_settings = {
 }
 
 
-### job ID
-job_id = "00000" # Default value
-if len(sys.argv) > 1:
-    job_id = sys.argv[1]  # Capture the job id from the command line
-
-
-### Random seed for Borg
-borg_seed = SEED
-if len(sys.argv) > 2 and sys.argv[2] != "None":
-    borg_seed = int(sys.argv[2])  # Capture the seed from the command line
-
-
-
 if __name__ == "__main__":
+
+    from borg import *
+    Configuration.startMPI()
+
+
+    ### job ID
+    job_id = "00000" # Default value
+    if len(sys.argv) > 1:
+        job_id = sys.argv[1]  # Capture the job id from the command line
+
+
+    ### Random seed for Borg
+    borg_seed = SEED
+    if len(sys.argv) > 2 and sys.argv[2] != "None":
+        borg_seed = int(sys.argv[2])  # Capture the seed from the command line
+
+
     
     ##### Borg Setup ####################################################################
 
@@ -108,7 +173,7 @@ if __name__ == "__main__":
         runtime_filename = pn.outputs.get() / f"parallel_{job_id}_nfe{NFE}_seed{borg_seed}_%d.runtime"
         
     # Checkpoint
-    newCheckpointFileBase_filename = pn.outputs.checkpoints.get() / f"parallel_{job_id}_nfe{nfe}_seed{borg_seed}"
+    newCheckpointFileBase_filename = pn.outputs.checkpoints.get() / f"parallel_{job_id}_nfe{NFE}_seed{borg_seed}"
 
     # Load previous checkpoint (the file must already exist)
     oldCheckpointFile_filename = pn.outputs.checkpoints.get() / "parallel_108649_nfe300_seed1_nfe100.checkpoint"

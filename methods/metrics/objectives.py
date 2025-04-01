@@ -2,6 +2,7 @@
 Used to calculate the objectives after Reservoir.run()
 """
 import hydroeval as he
+import numpy as np
 
 class ObjectiveCalculator():
     """
@@ -89,19 +90,21 @@ class ObjectiveCalculator():
             # add it to the list of objective outputs
             # metrics are transformed such that minimization is best
             if 'nse' in metric:
-                o = self.nse(obs=obs, sim=sim, log=log)
+                o = self.nse(obs=obs, sim=sim, log=log)[0]
                 objs.append(-o)             
             elif 'rmse' in metric:
-                o = self.rmse(obs=obs, sim=sim, log=log)
+                o = self.rmse(obs=obs, sim=sim, log=log)[0]
                 obs.append(o)
             elif 'kge' in metric:
-                o = self.kge(obs=obs, sim=sim, log=log)
+                o = self.kge(obs=obs, sim=sim, log=log)[0]
                 objs.append(-o[0])                
             elif 'pbias' in metric:
-                o = self.pbias(obs=obs, sim=sim, log=log)
+                o = self.pbias(obs=obs, sim=sim, log=log)[0]
                 objs.append(abs(o))
             else:
                 raise ValueError(f"Invalid metric: {metric}")
+        
+        objs = [float(o) for o in objs]
         
         return objs
     

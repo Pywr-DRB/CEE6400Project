@@ -71,6 +71,7 @@ We need to move several files to the CEE6400Project folder, to be accessed durin
 cp ../BorgTraining/borg.py ./
 cp -r ../BorgTraining/MOEAFramework-5.0/ ./
 cp -r ../BorgTraining/moeaframework/ ./
+cp ../MMBorgMOEA/libborg.so ./
 cp ../MMBorgMOEA/libborgms.so ./
 cp ../MMBorgMOEA/libborgmm.so ./
 ```

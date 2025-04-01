@@ -42,25 +42,7 @@ def get_evaluation_function(reservoir_name,
     release_obs = release_obs.loc[dt,:].values
     storage_obs = storage_obs.loc[dt,:].values
     
-    ### Setup reservoir
-    
-    # random initial vars for now (will be overwritten)
-    initial_vars = generate_policy_param_samples(policy_type, 
-                                                 n_samples=1, 
-                                                 sample_type='latin')[0]
-    
-    # reservoir object
-    reservoir = Reservoir(
-        inflow = inflow_obs,
-        capacity = reservoir_capacity[reservoir_name],
-        policy_type = policy_type,
-        policy_params = initial_vars,
-        release_min = reservoir_min_release[reservoir_name],
-        release_max = reservoir_max_release[reservoir_name],
-        initial_storage = storage_obs[0],
-        name = reservoir_name,
-    )
-    
+
     # Setup objective function
     obj_func = ObjectiveCalculator(metrics=metrics)
     
@@ -76,9 +58,21 @@ def get_evaluation_function(reservoir_name,
         Returns:
             tuple: The objective values
         """
+        ### Setup reservoir
+        reservoir = Reservoir(
+            inflow = inflow_obs,
+            capacity = reservoir_capacity[reservoir_name],
+            policy_type = policy_type,
+            policy_params = list(vars),
+            release_min = reservoir_min_release[reservoir_name],
+            release_max = reservoir_max_release[reservoir_name],
+            initial_storage = storage_obs[0],
+            name = reservoir_name,
+        )
         
         # Re-assign the reservoir policy params
-        reservoir.policy.parse_params(*vars)
+        reservoir.policy.policy_params = list(vars)
+        reservoir.policy.parse_policy_params()
         
         # Reset the reservoir simulation
         reservoir.reset()
@@ -94,8 +88,7 @@ def get_evaluation_function(reservoir_name,
         objectives = obj_func.calculate(obs=release_obs, 
                                         sim=sim_release)
         
-        # Return objective values as a tuple (for NSGA-II)
-        return tuple(objectives)
+        return objectives,
     
     
     # Return the evaluation function

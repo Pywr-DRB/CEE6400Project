@@ -184,12 +184,9 @@ class Reservoir():
             else:
                 self.spill_array[t] = 0.0
         
-        # format results in a dataframe
-        self.results = self.results()
-        
         return
 
-    def results(self):
+    def get_results(self):
         # Make a pd.DataFrame of the results
         results = {
             "inflow": self.inflow_array,

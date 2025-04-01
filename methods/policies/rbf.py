@@ -173,7 +173,10 @@ class RBF(AbstractPolicy):
         I_t = self.Reservoir.inflow_array[timestep]
         S_t = self.Reservoir.initial_storage if timestep == 0 else self.Reservoir.storage_array[timestep - 1]
 
-            
+        # make sure I_t and S_t are float
+        I_t = float(I_t)
+        S_t = float(S_t)
+
         # inputs  = [storage, inflow]
         X = np.array([S_t, I_t])
         

@@ -25,8 +25,8 @@ METRICS = [
 metric_epsilons = {
     'neg_nse': 0.01,
     'neg_kge': 0.01,
-    'abs_pbias': 1.0,
-    'rmse': 1.0,
+    'abs_pbias': 0.1,
+    'rmse': 0.1,
 }
 
 for m in METRICS:
