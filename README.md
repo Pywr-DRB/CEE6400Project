@@ -53,24 +53,25 @@ pip install -r requirements.txt
 
 Rather than compiling MMBorgMOEA from scratch, these instructions simply copy the already compiled `libborg*.sc` files from the `BorgTraining` (private) repo. If you encounter errors, you may need to clone the `MMBorgMOEA` repo and recompile, following the instructions in the WaterProgramming guide. 
 
-Navigate back to the CEE6400Project/ folder.
-```
-cd ../CEE6400Project/
-```
 
-We need to move several files to the CEE6400Project folder, to be accessed during the optimization:
+We need to move several files from the `BorgTraining` folder to the `CEE6400Project` folder, to be accessed during the optimization:
 ```
-cp ../BorgTraining/borg.py ./
-cp -r ../BorgTraining/MOEAFramework-5.0/ ./
-cp -r ../BorgTraining/moeaframework/ ./
-cp ../BorgTraining/libborg.so ./
-cp ../BorgTraining/libborgms.so ./
-cp ../BorgTraining/libborgmm.so ./
+cp ./BorgTraining/borg.py ./CEE6400Project/
+cp -r ./BorgTraining/MOEAFramework-5.0/ ./CEE6400Project/
+cp -r ./BorgTraining/moeaframework/ ./CEE6400Project/
+cp ./BorgTraining/libborg.so ./CEE6400Project/
+cp ./BorgTraining/libborgms.so ./CEE6400Project/
+cp ./BorgTraining/libborgmm.so ./CEE6400Project/
 ```
 
 ## Running MMBorgMOEA
 
 The following are designed to run on Hopper.  If using a different machine, errors may arise. 
+
+Navigate back to the `CEE6400Project` folder:
+```
+cd ./CEE6400Project
+```
 
 The `parallel_borg_run.py` file is used to execute the MMBorgMOEA optimization for a specific `POLICY_TYPE` and `RESERVOIR_NAME`.
 
