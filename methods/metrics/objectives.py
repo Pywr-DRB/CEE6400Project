@@ -77,11 +77,13 @@ class ObjectiveCalculator():
             
             # subset the data for low- and high-flow metrics
             if 'Q20' in metric:
-                obs = obs[obs < np.percentile(obs, 20)]
-                sim = sim[obs < np.percentile(obs, 20)]
+                use_idx = obs < np.percentile(obs, 20)
+                obs = obs[use_idx]
+                sim = sim[use_idx]
             elif 'Q80' in metric:
-                obs = obs[obs > np.percentile(obs, 80)]
-                sim = sim[obs > np.percentile(obs, 80)]
+                use_idx = obs > np.percentile(obs, 80)
+                obs = obs[use_idx]
+                sim = sim[use_idx]
             
             # calculate the objective value based on the metric
             # add it to the list of objective outputs
