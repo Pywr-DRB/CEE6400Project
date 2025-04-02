@@ -57,7 +57,7 @@ policy_type_options = [
 
 ## RBF
 n_rbfs = 2              # Number of radial basis functions (RBFs) used in the policy
-n_rbf_inputs = 2
+n_rbf_inputs = 3         # Number of input variables (inflow, storage, day_of_year)
 n_rbf_params = n_rbfs * (2 * n_rbf_inputs + 1)
 rbf_param_bounds = [[0.0, 1.0]] * n_rbf_params
 
