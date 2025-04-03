@@ -1,34 +1,12 @@
-from observed_data_retriever import ObservedDataRetriever, plot_obs_reservoir_dynamics
+from methods.preprocessing.observed_data_retriever import ObservedDataRetriever
+from methods.plotting.plot_obs_dynamics import plot_obs_reservoir_dynamics
 
+# Directories
+from methods.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, FIG_DIR
+from .gauge_ids import inflow_gauges, release_gauges, storage_gauges, storage_curves
 
 if __name__ == "__main__":
     retriever = ObservedDataRetriever()
-
-    # Define gauges and mappings
-    inflow_gauges = {
-        "01449360": "beltzvilleCombined",
-        "01447500": "fewalter",
-        "01428750": "prompton"
-    }
-    release_gauges = {
-        "01449800": "beltzvilleCombined",
-        "01447800": "fewalter",
-        "01429000": "prompton",
-        "01470960": "blueMarsh"
-    }
-    storage_gauges = {
-        "01449790": "beltzvilleCombined",
-        "01447780": "fewalter",
-        "01428900": "prompton",
-        "01470870": "blueMarsh"
-    }
-
-    storage_curves = {
-        "beltzvilleCombined": "raw/beltzvilleCombined_storage_curve.csv",
-        "fewalter": "raw/fewalter_storage_curve.csv",
-        "prompton": "raw/prompton_storage_curve.csv",
-        "blueMarsh": "raw/blueMarsh_storage_curve.csv"
-    }
 
     # Get inflows
     inflows = retriever.get(list(inflow_gauges.keys()), param_cd="00060", label_map=inflow_gauges)

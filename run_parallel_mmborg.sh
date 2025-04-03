@@ -25,7 +25,7 @@ submit_job() {
     echo "Total processors: $n_processors"
 
     # Run with MPI
-    time mpirun --oversubscribe -np $n_processors python parallel_borg_run.py "$POLICY_TYPE" "$RESERVOIR_NAME"
+    time mpirun --oversubscribe -np $n_processors python 03_parallel_borg_run.py "$POLICY_TYPE" "$RESERVOIR_NAME"
     
     echo "Finished: POLICY_TYPE=$POLICY_TYPE, RESERVOIR_NAME=$RESERVOIR_NAME"
     echo "#############################################"

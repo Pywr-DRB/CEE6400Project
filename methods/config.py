@@ -1,6 +1,7 @@
 """
 Contains configuration specifications for the project.
 """
+import os
 import numpy as np
 from methods.utils.release_constraints import get_release_minmax_release_dict
 
@@ -9,8 +10,21 @@ from methods.utils.release_constraints import get_release_minmax_release_dict
 SEED = 71
 DEBUG = True
 
+### Directories ###########
+# Get the directory of this file
+CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Other directories relative to this file
+DATA_DIR = os.path.join(CONFIG_DIR, "../data")
+RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
+PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
+OUTPUT_DIR = os.path.join(CONFIG_DIR, "../output")
+FIG_DIR = os.path.join(CONFIG_DIR, "../figures")
+
+
 ### Constants ###############
 cfs_to_mgd = 0.645932368556
+ACRE_FEET_TO_MG = 0.325851  # Acre-feet to million gallons
 
 
 ### MOEA Objectives ##########

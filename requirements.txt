@@ -3,7 +3,7 @@ pandas
 matplotlib
 hydroeval
 SALib
-
+dataretrieval
 pathnavigator
 plotly
 mpi4py

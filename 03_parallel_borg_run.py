@@ -77,6 +77,7 @@ storage_obs = load_observations(datatype='storage',
 # get overlapping datetime indices, 
 # when all data is available for this reservoir
 dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
+start_date = dt[0]
 
 # subset data
 inflow_obs = inflow_obs.loc[dt,:].values
@@ -114,6 +115,7 @@ def evaluate(*vars):
         release_min = reservoir_min_release[RESERVOIR_NAME],
         release_max = reservoir_max_release[RESERVOIR_NAME],
         initial_storage = storage_obs[0],
+        start_date = start_date,
         name = RESERVOIR_NAME,
     )
     

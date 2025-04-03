@@ -73,22 +73,6 @@ if __name__ == "__main__":
         release_obs = release_obs.loc[dt,:].values
         storage_obs = storage_obs.loc[dt,:].values
         
-        
-        
-        # Something is very wrong with Prompton data;
-        # release  = ~100 x inflow
-        if RESERVOIR_NAME == "prompton":
-            # print median inflow and release
-            print(f'Prompton inflow median: {np.median(inflow_obs) / cfs_to_mgd}')
-            print(f'Prompton release median: {np.median(release_obs) / cfs_to_mgd}')
-            
-            
-            # plot scatter of inflow vs release
-            plt.scatter(inflow_obs, release_obs, s=1)
-            plt.xlabel("Inflow MGD")
-            plt.ylabel("Release MGD")
-            plt.title("Prompton\nInflow vs Release")
-            plt.show()
 
         # scale inflow to have mass balance with release
         scale_factor = np.sum(release_obs) / np.sum(inflow_obs)
@@ -109,6 +93,7 @@ if __name__ == "__main__":
                 initial_storage = None,
                 name = RESERVOIR_NAME,
             )
+            
             if POLICY_TYPE == "STARFIT":
                 reservoir.policy.dates = datetime_index
 
