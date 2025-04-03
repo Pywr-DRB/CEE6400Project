@@ -20,13 +20,14 @@ from methods.sampling import generate_policy_param_samples
 # Policies to test
 test_policies = [
     # "RBF",
-    "PiecewiseLinear"
+    "PiecewiseLinear",
+    "STARFIT"
 ]
 
 # Reservoirs to test
 test_reservoirs = [
-    # "fewalter",
-    'beltzvilleCombined',
+     "fewalter",
+    #'beltzvilleCombined',
 ]
 
 
@@ -65,11 +66,13 @@ if __name__ == "__main__":
         
         # get only overlapping data range
         dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
-        
+        datetime_index = inflow_obs.loc[dt,:].index
+
         # subset data
         inflow_obs = inflow_obs.loc[dt,:].values
         release_obs = release_obs.loc[dt,:].values
         storage_obs = storage_obs.loc[dt,:].values
+        
         
         
         # Something is very wrong with Prompton data;
@@ -106,7 +109,9 @@ if __name__ == "__main__":
                 initial_storage = None,
                 name = RESERVOIR_NAME,
             )
-            
+            if POLICY_TYPE == "STARFIT":
+                reservoir.policy.dates = datetime_index
+
             # Run 
             reservoir.run()
 
@@ -132,9 +137,12 @@ if __name__ == "__main__":
             print(line_break)
 
 
-
             # Plot policy function
             reservoir.policy.plot()
+
+            # Plot STARFIT 3D policy surface
+            if POLICY_TYPE == "STARFIT":
+                reservoir.policy.plot_policy_surface()
             
             # Plot sim and obs dynamics (storage and release)
             reservoir.plot(

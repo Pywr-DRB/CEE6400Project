@@ -40,8 +40,31 @@ rbf_param_bounds = [[0.0, 1.0]] * n_rbf_params
 
 ## STARFIT
 n_starfit_params = 17         # Number of parameters in STARFIT policy
+# param order = [ NORhi_mu, NORhi_min, NORhi_max, NORhi_alpha, NORhi_beta,
+#                  NORlo_mu, NORlo_min, NORlo_max, NORlo_alpha, NORlo_beta,
+#                  Release_alpha1, Release_alpha2, Release_beta1, Release_beta2,
+#                  Release_c, Release_p1, Release_p2]
+
 starfit_param_bounds = [
+    [14.0244, 16.1356],   # NORhi_mu
+    [0.0, 2.0],           # NORhi_min
+    [93.0, 100.0],        # NORhi_max
+    [-0.2461, -0.2139],   # NORhi_alpha
+    [-2.1507, -1.8693],   # NORhi_beta
+    [11.6994, 13.4606],   # NORlo_mu
+    [11.4483, 13.1717],   # NORlo_min
+    [14.4336, 16.6064],   # NORlo_max
+    [0.1860, 0.2140],     # NORlo_alpha
+    [-4.3656, -3.7944],   # NORlo_beta
+    [-4.08, 240.0],       # Release_alpha1
+    [-0.5901, 84.7844],   # Release_alpha2
+    [-1.2104, 83.9024],   # Release_beta1
+    [-52.3545, 0.4454],   # Release_beta2
+    [-1.4, 63.516],       # Release_c
+    [0.0, 17.02],         # Release_p1
+    [0.0, 0.957]          # Release_p2
 ]
+
 
 
 ## Piecewise Linear
@@ -116,24 +139,4 @@ for r in reservoir_options:
     
 
 
-
-
-
-# # Conservation releases if applied (in MGD)
-# # Minimum releases are set according to typical drought operation targets.
-# reservoir_min_release = {
-#     "prompton": 3.9,               # 6 cfs = 3.9 MGD (drought release)
-#     "beltzvilleCombined": 9.7,      # 15 cfs = 9.7 MGD (drought release)
-#     "fewalter": 27.8,               # 43 cfs = 27.8 MGD (drought release)
-#     "blueMarsh": 13.6               # 21 cfs = 13.6 MGD (drought release)
-# }
-
-# # Maximum releases are estimated from typical operating scenarios
-# # These are not absolute maximums but common release levels during normal conditions.
-# reservoir_max_release = {
-#     "prompton": 3.9,                # Same as min release (minimal pass-through flow)
-#     "beltzvilleCombined": 22.6,      # 35 cfs = 22.6 MGD (normal release)
-#     "fewalter": 32.0,               # 50 cfs = 32 MGD (normal release)
-#     "blueMarsh": 32.0               # 50 cfs = 32 MGD (normal release, including supply withdrawal)
-# }
 
