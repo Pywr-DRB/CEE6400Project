@@ -13,6 +13,30 @@ DEBUG = True
 cfs_to_mgd = 0.645932368556
 
 
+### MOEA Objectives ##########
+
+# Metrics used for Borg
+METRICS = [
+    'neg_nse',           # Negative Nash Sutcliffe Efficiency
+    'abs_pbias',         # Absolute Percent Bias
+]
+
+
+metric_epsilons = {
+    'neg_nse': 0.01,
+    'neg_kge': 0.01,
+    'abs_pbias': 0.01,
+    'rmse': 0.01,
+}
+
+for m in METRICS:
+    for q in ["Q20", "Q80"]:
+        metric_epsilons[f"{q}_{m}"] = metric_epsilons[m]
+    metric_epsilons[f"log_{m}"] = metric_epsilons[m]
+
+EPSILONS = [metric_epsilons[m] for m in METRICS]
+
+
 ### Reservoirs ###############
 reservoir_options = [
     'blueMarsh',
@@ -33,7 +57,7 @@ policy_type_options = [
 
 ## RBF
 n_rbfs = 2              # Number of radial basis functions (RBFs) used in the policy
-n_rbf_inputs = 2
+n_rbf_inputs = 3         # Number of input variables (inflow, storage, day_of_year)
 n_rbf_params = n_rbfs * (2 * n_rbf_inputs + 1)
 rbf_param_bounds = [[0.0, 1.0]] * n_rbf_params
 

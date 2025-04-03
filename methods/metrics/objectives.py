@@ -2,6 +2,7 @@
 Used to calculate the objectives after Reservoir.run()
 """
 import hydroeval as he
+import numpy as np
 
 class ObjectiveCalculator():
     """
@@ -77,29 +78,33 @@ class ObjectiveCalculator():
             
             # subset the data for low- and high-flow metrics
             if 'Q20' in metric:
-                obs = obs[obs < np.percentile(obs, 20)]
-                sim = sim[obs < np.percentile(obs, 20)]
+                use_idx = obs < np.percentile(obs, 20)
+                obs = obs[use_idx]
+                sim = sim[use_idx]
             elif 'Q80' in metric:
-                obs = obs[obs > np.percentile(obs, 80)]
-                sim = sim[obs > np.percentile(obs, 80)]
+                use_idx = obs > np.percentile(obs, 80)
+                obs = obs[use_idx]
+                sim = sim[use_idx]
             
             # calculate the objective value based on the metric
             # add it to the list of objective outputs
             # metrics are transformed such that minimization is best
             if 'nse' in metric:
-                o = self.nse(obs=obs, sim=sim, log=log)
+                o = self.nse(obs=obs, sim=sim, log=log)[0]
                 objs.append(-o)             
             elif 'rmse' in metric:
-                o = self.rmse(obs=obs, sim=sim, log=log)
+                o = self.rmse(obs=obs, sim=sim, log=log)[0]
                 obs.append(o)
             elif 'kge' in metric:
-                o = self.kge(obs=obs, sim=sim, log=log)
+                o = self.kge(obs=obs, sim=sim, log=log)[0]
                 objs.append(-o[0])                
             elif 'pbias' in metric:
-                o = self.pbias(obs=obs, sim=sim, log=log)
+                o = self.pbias(obs=obs, sim=sim, log=log)[0]
                 objs.append(abs(o))
             else:
                 raise ValueError(f"Invalid metric: {metric}")
+        
+        objs = [float(o) for o in objs]
         
         return objs
     

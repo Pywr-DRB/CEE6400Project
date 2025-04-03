@@ -20,3 +20,8 @@ pywr_glpk_debug*
 venv*
 wsl_venv*
 /venv*
+
+MMBorgMOEA/
+lib*
+borg.py
+MOEAFramework-5.0/

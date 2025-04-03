@@ -57,12 +57,14 @@ class RBF(AbstractPolicy):
         
         # X (input) max and min values
         # used to normalize the input data
-        # X = [storage, inflow]
+        # X = [storage, inflow, day_of_year]
         self.x_min = np.array([0.0, 
-                               self.Reservoir.inflow_min])
+                               self.Reservoir.inflow_min,
+                               0.0])
         
         self.x_max = np.array([self.Reservoir.capacity, 
-                               self.Reservoir.inflow_max])
+                               self.Reservoir.inflow_max,
+                               365.0])
         
         
         self.policy_params = policy_params
@@ -172,10 +174,19 @@ class RBF(AbstractPolicy):
         # Get state variables
         I_t = self.Reservoir.inflow_array[timestep]
         S_t = self.Reservoir.initial_storage if timestep == 0 else self.Reservoir.storage_array[timestep - 1]
+        day_of_year = self.Reservoir.doy[timestep] if self.Reservoir.doy is not None else None
+        
+        if day_of_year is None:
+            print("Day of year is None. start_date must be set during initalization.")
+            return None            
 
-            
+        # make sure I_t and S_t are float
+        I_t = float(I_t)
+        S_t = float(S_t)
+        day_of_year = float(day_of_year)
+    
         # inputs  = [storage, inflow]
-        X = np.array([S_t, I_t])
+        X = np.array([S_t, I_t, day_of_year])
         
         # Normalize X
         X_norm = np.zeros(self.n_inputs)

@@ -15,79 +15,86 @@ import sys
 import numpy as np
 from pathnavigator import PathNavigator
 
-from methods.load.observations import load_observations
 from methods.reservoir.model import Reservoir
+from methods.load.observations import load_observations
 from methods.metrics.objectives import ObjectiveCalculator
-from config import reservoir_min_release, reservoir_max_release, reservoir_capaquity
+from methods.utils import get_overlapping_datetime_indices
+from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
+from methods.config import policy_n_params, policy_param_bounds
+from methods.config import SEED, METRICS, EPSILONS
 
-# pathnavigator is a Python package I developed. See github.com/philip928lin/PathNavigator
 
-##### Set for parallel borg
-from borg import *
-Configuration.startMPI()
-
-# root_dir = os.path.expanduser("~/Github/BorgTraining")
+root_dir = os.path.expanduser("./")
 pn = PathNavigator(root_dir)
 pn.chdir()
+
+
+### Get POLICY_TYPE and RESERVOIR_NAME from sys.argv
+assert len(sys.argv) > 2, "POLICY_TYPE and RESERVOIR_NAME must be provided by command line."
+
+POLICY_TYPE = sys.argv[1]  
+RESERVOIR_NAME = sys.argv[2]
+
+
 
 ##### Settings ####################################################################
 
 ### Policy settings
-RESERVOIR_NAME = 'fewalter'
-POLICY_TYPE = "STARFIT"
+NVARS = policy_n_params[POLICY_TYPE]
+BOUNDS = policy_param_bounds[POLICY_TYPE]
 
-
-nvars = 8               # depends on policy type
-nobjs = 3
+### Objectives
+METRICS = METRICS
+NOBJS = len(METRICS) * 2   # x2 since storage and release objectives
+EPSILONS = EPSILONS + EPSILONS
 
 ### Borg Settings
-nconstrs = 0
-nfe = 10_000            # Number of function evaluation 
+NCONSTRS = 0
+NFE = 10000            # Number of function evaluation 
 runtime_freq = 250      # output frequency
-islands = 1             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
-
-borg_settings = {
-    "numberOfVariables": nvars,
-    "numberOfObjectives": nobjs,
-    "numberOfConstraints": nconstrs,
-    "function": DTLZ2,
-    "epsilons": [0.01] * nobjs,
-    "bounds": [[0, 1]] * nvars,
-    "directions": None,  # default is to minimize all objectives. keep this unchanged.
-    "seed": borg_seed
-}
+islands = 3             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
+borg_seed = SEED
 
 
-### job ID
-job_id = "00000" # Default value
-if len(sys.argv) > 1:
-    job_id = sys.argv[1]  # Capture the job id from the command line
+### Other
+SCALE_INFLOW = True   # if True, scale inflow based on observed release volume
 
 
-### Random seed for Borg
-borg_seed = None # Default value
-if len(sys.argv) > 2 and sys.argv[2] != "None":
-    borg_seed = int(sys.argv[2])  # Capture the seed from the command line
+### Load observed data #######################################
+
+inflow_obs = load_observations(datatype='inflow', 
+                            reservoir_name=RESERVOIR_NAME, 
+                            data_dir="./data/", as_numpy=False)
+
+release_obs = load_observations(datatype='release', 
+                                reservoir_name=RESERVOIR_NAME, 
+                                data_dir="./data/", as_numpy=False)
+
+storage_obs = load_observations(datatype='storage',
+                                reservoir_name=RESERVOIR_NAME, 
+                                data_dir="./data/", as_numpy=False)
+
+# get overlapping datetime indices, 
+# when all data is available for this reservoir
+dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
+
+# subset data
+inflow_obs = inflow_obs.loc[dt,:].values
+release_obs = release_obs.loc[dt,:].values
+storage_obs = storage_obs.loc[dt,:].values
 
 
-##### Define the evaluation function for Borg ##########################################
+# scale inflow, so that the total inflow volume is equal to the total release volume
+if SCALE_INFLOW:
+    scale_factor = np.sum(release_obs) / np.sum(inflow_obs)
+    inflow_obs = inflow_obs * scale_factor
 
-### Setup the reservoir model
-# use random vars for now to avoid error
-initial_vars = np.random.rand(nvars)
+# Setup objective function
+obj_func = ObjectiveCalculator(metrics=METRICS)
 
-reservoir = Reservoir(
-    inflow=inflow,
-    capacity=reservoir_capaquity[RESERVOIR_NAME],
-    policy_type=POLICY_TYPE,
-    policy_params=initial_vars,
-    release_min=reservoir_min_release[RESERVOIR_NAME],
-    release_max=reservoir_max_release[RESERVOIR_NAME],
-    initial_storage=None,
-    name=RESERVOIR_NAME,
-)
 
-### Evaluation function
+### Evaluation function: 
+# function(*vars) -> (objs, constrs)
 def evaluate(*vars):
     """
     Runs one reservoir operation function evaluation.
@@ -98,9 +105,21 @@ def evaluate(*vars):
     Returns:
         tuple: The objective values
     """
+    ### Setup reservoir
+    reservoir = Reservoir(
+        inflow = inflow_obs,
+        capacity = reservoir_capacity[RESERVOIR_NAME],
+        policy_type = POLICY_TYPE,
+        policy_params = list(vars),
+        release_min = reservoir_min_release[RESERVOIR_NAME],
+        release_max = reservoir_max_release[RESERVOIR_NAME],
+        initial_storage = storage_obs[0],
+        name = RESERVOIR_NAME,
+    )
     
     # Re-assign the reservoir policy params
-    reservoir.policy.parse_params(*vars)
+    reservoir.policy.policy_params = list(vars)
+    reservoir.policy.parse_policy_params()
     
     # Reset the reservoir simulation
     reservoir.reset()
@@ -113,15 +132,39 @@ def evaluate(*vars):
     sim_storage = reservoir.storage_array 
     
     # Calculate the objectives
-    objectives = ObjFunc.calculate(obs=observed, sim=simulated)
+    release_objs = obj_func.calculate(obs=release_obs,
+                                        sim=sim_release)
+    storage_objs = obj_func.calculate(obs=storage_obs,
+                                        sim=sim_storage)
     
-    # Return objective values as a tuple (for NSGA-II)
-    return tuple(objectives)
+    objectives = []
+    for obj in release_objs:
+        objectives.append(obj)
+    for obj in storage_objs:
+        objectives.append(obj)
+    
+    return objectives,
+
+
+borg_settings = {
+    "numberOfVariables": NVARS,
+    "numberOfObjectives": NOBJS,
+    "numberOfConstraints": NCONSTRS,
+    "function": evaluate,
+    "epsilons": EPSILONS,
+    "bounds": BOUNDS,
+    "directions": None,  # default is to minimize all objectives. keep this unchanged.
+    "seed": SEED
+}
 
 
 if __name__ == "__main__":
+
+    from borg import *
+    Configuration.startMPI()
+
     
-    ##### Borg settings ####################################################################
+    ##### Borg Setup ####################################################################
 
     borg = Borg(**borg_settings)
 
@@ -130,33 +173,27 @@ if __name__ == "__main__":
     pn.mkdir("outputs") 
     pn.outputs.mkdir("checkpoints")
 
+    if islands == 1:
+        fname_base = pn.outputs.get() / f"MWBorg_{POLICY_TYPE}_{RESERVOIR_NAME}_nfe{NFE}_seed{borg_seed}"
+    else:
+        fname_base = pn.outputs.get() / f"MMBorg_{islands}M_{POLICY_TYPE}_{RESERVOIR_NAME}_nfe{NFE}_seed{borg_seed}"
+    
     # Runtime
     if islands == 1: # Master slave version
-        runtime_filename = pn.outputs.get() / f"parallel_{job_id}_nfe{nfe}_seed{borg_seed}.runtime"
+        runtime_filename = f"{fname_base}.runtime"
     else:
         # For MMBorg, the filename should include one %d which gets replaced by the island index
-        runtime_filename = pn.outputs.get() / f"parallel_{job_id}_nfe{nfe}_seed{borg_seed}_%d.runtime"
-        
-    # Checkpoint
-    newCheckpointFileBase_filename = pn.outputs.checkpoints.get() / f"parallel_{job_id}_nfe{nfe}_seed{borg_seed}"
+        runtime_filename = f"{fname_base}_%d.runtime"
 
-    # Load previous checkpoint (the file must already exist)
-    oldCheckpointFile_filename = pn.outputs.checkpoints.get() / "parallel_108649_nfe300_seed1_nfe100.checkpoint"
-
-    # Evaluation
-    evaluationFile_filename = pn.outputs.get() / f"{job_id}_nfe{nfe}_seed{borg_seed}.eval"
 
     solvempi_settings = {
         "islands": islands,
         "maxTime": None,
-        "maxEvaluations": nfe,  # Total NFE is islands * maxEvaluations if island > 1
+        "maxEvaluations": NFE,  # Total NFE is islands * maxEvaluations if island > 1
         "initialization": None,
         "runtime": runtime_filename,
         "allEvaluations": None,
         "frequency": runtime_freq,
-        "newCheckpointFileBase": newCheckpointFileBase_filename, # Output checkpoint
-        #"oldCheckpointFile": oldCheckpointFile_filename, # Load checkpoint if uncommented
-        #"evaluationFile": evaluationFile_filename
     }
 
     result = borg.solveMPI(**solvempi_settings)
@@ -164,26 +201,26 @@ if __name__ == "__main__":
     ##### Save results #####################################################################
     if result is not None:
         # The result will only be returned from one node
-        with open(pn.outputs.get() / f"{job_id}_nfe{nfe}_seed{borg_seed}.csv", "w") as file:
+        with open(f"{fname_base}.csv", "w") as file:
             # You may add header here
             file.write(",".join(
-                [f"var{i+1}" for i in range(nvars)]
-                + [f"obj{i+1}" for i in range(nobjs)]
-                + [f"constr{i+1}" for i in range(nconstrs)]
+                [f"var{i+1}" for i in range(NVARS)]
+                + [f"obj{i+1}" for i in range(NOBJS)]
+                + [f"constr{i+1}" for i in range(NCONSTRS)]
                 ) + "\n")
             result.display(out=file, separator=",")
 
         # for MOEAFramework-5.0
-        with open(pn.outputs.get() / f"{job_id}_nfe{nfe}_seed{borg_seed}.set", "w") as file:
+        with open(f"{fname_base}.set", "w") as file:
             # You may add header here
             file.write("# Version=5\n")
-            file.write(f"# NumberOfVariables={nvars}\n")
-            file.write(f"# NumberOfObjectives={nobjs}\n")
-            file.write(f"# NumberOfConstraints={nconstrs}\n")
+            file.write(f"# NumberOfVariables={NVARS}\n")
+            file.write(f"# NumberOfObjectives={NOBJS}\n")
+            file.write(f"# NumberOfConstraints={NCONSTRS}\n")
             for i, bound in enumerate(borg_settings["bounds"]):
                 file.write(f"# Variable.{i+1}.Definition=RealVariable({bound[0]},{bound[1]})\n")
             if borg_settings.get("directions") is None:
-                for i in range(nobjs):
+                for i in range(NOBJS):
                     file.write(f"# Objective.{i+1}.Definition=Minimize\n")
             else:
                 for i, direction in enumerate(borg_settings["directions"]):
@@ -191,12 +228,12 @@ if __name__ == "__main__":
                         file.write(f"# Objective.{i+1}.Definition=Minimize\n")
                     elif direction == "max":
                         file.write(f"# Objective.{i+1}.Definition=Maximize\n")
-            file.write(f"//NFE={nfe}\n") # if using check point or multi island, the NFE may not be correct.
+            file.write(f"//NFE={NFE}\n") # if using check point or multi island, the NFE may not be correct.
             result.display(out=file, separator=" ")
             file.write("#\n")
         
         # Write the dictionary to a file in a readable format
-        with open(pn.outputs.get() / f"{job_id}_nfe{nfe}_seed{borg_seed}.info", 'w') as file:
+        with open(f"{fname_base}.info", 'w') as file:
             file.write("\nBorg settings\n")
             file.write("=================\n")
             for key, value in borg_settings.items():
@@ -207,9 +244,9 @@ if __name__ == "__main__":
                 file.write(f"{key}: {value}\n")
 
         if islands == 1:
-            print(f"Master: Completed dps_borg_{job_id}_nfe{nfe}_seed{borg_seed}.csv")
+            print(f"Master: Completed {fname_base}")
         elif islands > 1:
-            print(f"Multi-master controller: Completed dps_borg_{job_id}_nfe{nfe}_seed{borg_seed}.csv")
+            print(f"Multi-master controller: Completed {fname_base}")
 
     ##### End MPI #########################################################################
     Configuration.stopMPI()
