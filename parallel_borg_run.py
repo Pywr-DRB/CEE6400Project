@@ -117,21 +117,24 @@ def evaluate(*vars):
         release_min = reservoir_min_release[RESERVOIR_NAME],
         release_max = reservoir_max_release[RESERVOIR_NAME],
         initial_storage = storage_obs[0],
-        start_date = start_date,
+        start_date = start_date,   #TODO: Change start_date to match Marilyn's reservoir.date format when ready # RBF uses start_date
         name = RESERVOIR_NAME,
     )
     
     # Re-assign the reservoir policy params
-    reservoir.policy.policy_params = list(vars)
-    reservoir.policy.parse_policy_params()
+    if POLICY_TYPE == 'STARFIT':
+        reservoir.policy.parse_policy_params(list(vars))
+    else:
+        reservoir.policy.parse_policy_params() # reservoir.policy.policy_params is already set
     
     ## Check constraints 
-    # if POLICY_TYPE == 'STARFIT' and NCONSTRS > 0:
-    #     # test that NOR range is valid
-    #     valid = reservoir.policy.test_nor_constraint(*vars)
-    #     if not valid:
-    #         objs = [9999.99] * NOBJS
-    #         return objs, False
+    #TODO: Double check this (how does the constraint work?)
+    if POLICY_TYPE == 'STARFIT' and NCONSTRS > 0:
+        # test that NOR range is valid
+        valid = reservoir.policy.test_nor_constraint(*vars)
+        if not valid:
+            objs = [9999.99] * NOBJS
+            return objs, False
     
     # Reset the reservoir simulation
     reservoir.reset()
@@ -156,7 +159,7 @@ def evaluate(*vars):
     for obj in storage_objs:
         objectives.append(obj)
     
-    return objectives,
+    return objectives, True
 
 
 borg_settings = {

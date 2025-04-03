@@ -62,8 +62,11 @@ class STARFIT(AbstractPolicy):
             self.Release_beta1, self.Release_beta2,
             self.Release_c, self.Release_p1, self.Release_p2
         ) = policy_params
-
+        
         self.validate_policy_params()
+        
+        # Setup the self.weekly_NORhi/lo_array        
+        self.calculate_weekly_NOR()
 
     def validate_policy_params(self):
         assert len(self.policy_params) == self.n_params
@@ -107,26 +110,30 @@ class STARFIT(AbstractPolicy):
         )
         return np.clip(NOR_lo, self.NORlo_min, self.NORlo_max) / 100
 
-    def calculate_annual_NOR(self):
+    def calculate_weekly_NOR(self):
+        #TODO: Double check this
+        
         # loop through timestep 
-        annual_NORhi = []
-        annual_NORlo = []
+        weekly_NORhi = []
+        weekly_NORlo = []
         for t in range(52):
             NOR_hi = self.calc_NOR_hi(t)
             NOR_lo = self.calc_NOR_lo(t)
-            annual_NORhi.append(NOR_hi)
-            annual_NORlo.append(NOR_lo)
+            weekly_NORhi.append(NOR_hi)
+            weekly_NORlo.append(NOR_lo)
         
         # make sure NOR_hi is always greater than NOR_lo
-        annual_NORhi = np.array(annual_NORhi)
-        annual_NORlo = np.array(annual_NORlo)
-        self.annual_NORhi = annual_NORhi
-        self.annual_NORlo = annual_NORlo
+        weekly_NORhi = np.array(weekly_NORhi)
+        weekly_NORlo = np.array(weekly_NORlo)
+        self.weekly_NORhi_array = weekly_NORhi
+        self.weekly_NORlo_array = weekly_NORlo
 
+    
     def test_nor_constraint(self):
-
-        self.calculate_annual_NOR()
-        if np.any(self.annual_NORhi < self.annual_NORlo):
+        #TODO: Double check this
+        
+        self.calculate_weekly_NOR()
+        if np.any(self.weekly_NORhi < self.weekly_NORlo):
             return False
         else:
             return True
@@ -142,9 +149,14 @@ class STARFIT(AbstractPolicy):
         week = self.get_week_index(timestep)
         harmonic = self.release_harmonic(week)
 
+        #TODO: Double check release formula
         target_R = (S_hat + harmonic) * self.S_cap + self.Release_c
         target_R = np.clip(target_R, self.R_min, self.R_max)
 
+        #TODO: Need to enforce NORhi/lo bounds
+        # nor_lo = self.weekly_NORhi_array[week]
+        # nor_hi = self.weekly_NORlo_array[week]
+        
         return self.enforce_constraints(target_R)
 
     def plot(self, fname="STARFIT_Storage_vs_Release.png"):
