@@ -43,7 +43,7 @@ metric_epsilons = {
     'rmse': 0.01,
 }
 
-for m in METRICS:
+for m in list(metric_epsilons.keys()):
     for q in ["Q20", "Q80"]:
         metric_epsilons[f"{q}_{m}"] = metric_epsilons[m]
     metric_epsilons[f"log_{m}"] = metric_epsilons[m]
@@ -103,7 +103,7 @@ starfit_param_bounds = [
     [0.0, 0.957]          # Release_p2
 ]
 
-
+## TODO: Add a constraint to Borg so that NOR hi doesnt cross NOR lo
 
 ## Piecewise Linear
 use_inflow_predictor = True

@@ -107,6 +107,30 @@ class STARFIT(AbstractPolicy):
         )
         return np.clip(NOR_lo, self.NORlo_min, self.NORlo_max) / 100
 
+    def calculate_annual_NOR(self):
+        # loop through timestep 
+        annual_NORhi = []
+        annual_NORlo = []
+        for t in range(52):
+            NOR_hi = self.calc_NOR_hi(t)
+            NOR_lo = self.calc_NOR_lo(t)
+            annual_NORhi.append(NOR_hi)
+            annual_NORlo.append(NOR_lo)
+        
+        # make sure NOR_hi is always greater than NOR_lo
+        annual_NORhi = np.array(annual_NORhi)
+        annual_NORlo = np.array(annual_NORlo)
+        self.annual_NORhi = annual_NORhi
+        self.annual_NORlo = annual_NORlo
+
+    def test_nor_constraint(self):
+
+        self.calculate_annual_NOR()
+        if np.any(self.annual_NORhi < self.annual_NORlo):
+            return False
+        else:
+            return True
+
     def percent_storage(self, S_t):
         return S_t / self.S_cap
 

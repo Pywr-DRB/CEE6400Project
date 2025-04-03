@@ -5,7 +5,10 @@ from methods.plotting.plot_obs_dynamics import plot_obs_reservoir_dynamics
 from methods.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, FIG_DIR
 from .gauge_ids import inflow_gauges, release_gauges, storage_gauges, storage_curves
 
+
+
 if __name__ == "__main__":
+    
     retriever = ObservedDataRetriever()
 
     # Get inflows

@@ -4,12 +4,14 @@ inflow_gauges = {
     "01447500": "fewalter",
     "01428750": "prompton"
 }
+
 release_gauges = {
     "01449800": "beltzvilleCombined",
     "01447800": "fewalter",
     "01429000": "prompton",
     "01470960": "blueMarsh"
 }
+
 storage_gauges = {
     "01449790": "beltzvilleCombined",
     "01447780": "fewalter",

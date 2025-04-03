@@ -49,7 +49,8 @@ NOBJS = len(METRICS) * 2   # x2 since storage and release objectives
 EPSILONS = EPSILONS + EPSILONS
 
 ### Borg Settings
-NCONSTRS = 0
+NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
+
 NFE = 10000            # Number of function evaluation 
 runtime_freq = 250      # output frequency
 islands = 3             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
@@ -106,6 +107,7 @@ def evaluate(*vars):
     Returns:
         tuple: The objective values
     """
+    
     ### Setup reservoir
     reservoir = Reservoir(
         inflow = inflow_obs,
@@ -123,6 +125,14 @@ def evaluate(*vars):
     reservoir.policy.policy_params = list(vars)
     reservoir.policy.parse_policy_params()
     
+    ## Check constraints 
+    # if POLICY_TYPE == 'STARFIT' and NCONSTRS > 0:
+    #     # test that NOR range is valid
+    #     valid = reservoir.policy.test_nor_constraint(*vars)
+    #     if not valid:
+    #         objs = [9999.99] * NOBJS
+    #         return objs, False
+    
     # Reset the reservoir simulation
     reservoir.reset()
     
@@ -136,6 +146,7 @@ def evaluate(*vars):
     # Calculate the objectives
     release_objs = obj_func.calculate(obs=release_obs,
                                         sim=sim_release)
+    
     storage_objs = obj_func.calculate(obs=storage_obs,
                                         sim=sim_storage)
     
