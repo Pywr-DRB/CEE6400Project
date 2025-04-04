@@ -70,27 +70,8 @@ inflow_obs, release_obs, storage_obs = get_observational_training_data(
     as_numpy=False
 )
 
-
 # Keep datetime
 datetime = inflow_obs.index
-
-release_obs = load_observations(datatype='release', 
-                                reservoir_name=RESERVOIR_NAME, 
-                                data_dir="./data/", as_numpy=False)
-
-storage_obs = load_observations(datatype='storage',
-                                reservoir_name=RESERVOIR_NAME, 
-                                data_dir="./data/", as_numpy=False)
-
-# get overlapping datetime indices, 
-# when all data is available for this reservoir
-dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
-datetime_index = inflow_obs.loc[dt,:].index
-
-# subset data
-inflow_obs = inflow_obs.loc[dt,:].values
-release_obs = release_obs.loc[dt,:].values
-storage_obs = storage_obs.loc[dt,:].values
 
 
 # Convert obs to numpy arrays
@@ -125,10 +106,9 @@ def evaluate(*vars):
     reservoir = Reservoir(
         inflow = inflow_obs,
         dates= datetime,
-        inflow = inflow_scaled,
         capacity = reservoir_capacity[RESERVOIR_NAME],
         policy_type = POLICY_TYPE,
-        policy_params = test_params[POLICY_TYPE],
+        policy_params = list(vars),
         release_min = reservoir_min_release[RESERVOIR_NAME],
         release_max =  reservoir_max_release[RESERVOIR_NAME],
         initial_storage = None,
@@ -136,7 +116,6 @@ def evaluate(*vars):
     )
                 
     # Re-assign the reservoir policy params
-<<<<<<< Updated upstream
     if POLICY_TYPE == 'STARFIT':
         reservoir.policy.parse_policy_params(list(vars))
     else:
