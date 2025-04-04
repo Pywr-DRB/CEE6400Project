@@ -131,7 +131,7 @@ def evaluate(*vars):
     #TODO: Double check this (how does the constraint work?)
     if POLICY_TYPE == 'STARFIT' and NCONSTRS > 0:
         # test that NOR range is valid
-        valid = reservoir.policy.test_nor_constraint(*vars)
+        valid = reservoir.policy.test_nor_constraint()
         if not valid:
             objs = [9999.99] * NOBJS
             return objs, False
@@ -158,9 +158,11 @@ def evaluate(*vars):
         objectives.append(obj)
     for obj in storage_objs:
         objectives.append(obj)
-    
-    return objectives, True
-
+        
+    if NCONSTRS > 0:    
+        return objectives, True
+    else:
+        return objectives,
 
 borg_settings = {
     "numberOfVariables": NVARS,

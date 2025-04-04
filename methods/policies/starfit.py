@@ -133,7 +133,7 @@ class STARFIT(AbstractPolicy):
         #TODO: Double check this
         
         self.calculate_weekly_NOR()
-        if np.any(self.weekly_NORhi < self.weekly_NORlo):
+        if np.any(self.weekly_NORhi_array < self.weekly_NORlo_array):
             return False
         else:
             return True
