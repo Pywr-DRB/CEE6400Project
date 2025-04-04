@@ -49,9 +49,10 @@ NOBJS = len(METRICS) * 2   # x2 since storage and release objectives
 EPSILONS = EPSILONS + EPSILONS
 
 ### Borg Settings
-NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
+ # NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
+NCONSTRS = 0
+NFE = 1000         # Number of function evaluation 
 
-NFE = 30000            # Number of function evaluation 
 runtime_freq = 250      # output frequency
 islands = 3             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
 borg_seed = SEED
@@ -69,8 +70,28 @@ inflow_obs, release_obs, storage_obs = get_observational_training_data(
     as_numpy=False
 )
 
+
 # Keep datetime
 datetime = inflow_obs.index
+
+release_obs = load_observations(datatype='release', 
+                                reservoir_name=RESERVOIR_NAME, 
+                                data_dir="./data/", as_numpy=False)
+
+storage_obs = load_observations(datatype='storage',
+                                reservoir_name=RESERVOIR_NAME, 
+                                data_dir="./data/", as_numpy=False)
+
+# get overlapping datetime indices, 
+# when all data is available for this reservoir
+dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
+datetime_index = inflow_obs.loc[dt,:].index
+
+# subset data
+inflow_obs = inflow_obs.loc[dt,:].values
+release_obs = release_obs.loc[dt,:].values
+storage_obs = storage_obs.loc[dt,:].values
+
 
 # Convert obs to numpy arrays
 inflow_obs = inflow_obs.values
@@ -100,19 +121,22 @@ def evaluate(*vars):
     """
     
     ### Setup reservoir
+
     reservoir = Reservoir(
         inflow = inflow_obs,
         dates= datetime,
+        inflow = inflow_scaled,
         capacity = reservoir_capacity[RESERVOIR_NAME],
         policy_type = POLICY_TYPE,
-        policy_params = list(vars),
+        policy_params = test_params[POLICY_TYPE],
         release_min = reservoir_min_release[RESERVOIR_NAME],
-        release_max = reservoir_max_release[RESERVOIR_NAME],
-        initial_storage = storage_obs[0],
-        name = RESERVOIR_NAME,
+        release_max =  reservoir_max_release[RESERVOIR_NAME],
+        initial_storage = None,
+        name = RESERVOIR_NAME
     )
-    
+                
     # Re-assign the reservoir policy params
+<<<<<<< Updated upstream
     if POLICY_TYPE == 'STARFIT':
         reservoir.policy.parse_policy_params(list(vars))
     else:
@@ -120,12 +144,13 @@ def evaluate(*vars):
     
     ## Check constraints 
     #TODO: Double check this (how does the constraint work?)
-    if POLICY_TYPE == 'STARFIT' and NCONSTRS > 0:
-        # test that NOR range is valid
-        valid = reservoir.policy.test_nor_constraint()
-        if not valid:
-            objs = [9999.99] * NOBJS
-            return objs, False
+    #if POLICY_TYPE == 'STARFIT' and NCONSTRS > 0:
+    #    # test that NOR range is valid
+    #    valid = reservoir.policy.test_nor_constraint()
+    #    if not valid:
+    #        objs = [9999.99] * NOBJS
+    #        return objs, False
+
     
     # Reset the reservoir simulation
     reservoir.reset()
