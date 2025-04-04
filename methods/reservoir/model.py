@@ -212,7 +212,8 @@ class Reservoir():
              storage_obs=None,
              release_obs=None,
              release_log_scale=True,
-             release_smooth_window=None):
+             release_smooth_window=None,
+             title=None):
         """
         Plot storage and release data.
         
@@ -252,6 +253,9 @@ class Reservoir():
         
         ax[1].set_xlabel('Time')
         ax[0].legend()
+        
+        if title is not None:
+            fig.suptitle(title)
         
         if save:
             if fname is None:

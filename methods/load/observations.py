@@ -20,7 +20,7 @@ def load_observations(datatype,
     if datatype not in ["inflow", "storage", "release"]:
         raise ValueError(f"Invalid datatype '{datatype}'. Must be 'inflow', 'storage' or 'release'.")
     
-    filepath = f"{data_dir}{datatype}.csv"
+    filepath = f"{data_dir}/{datatype}.csv"
 
     df = pd.read_csv(filepath, index_col = 0, parse_dates=True)
     df.index = pd.to_datetime(df.index.date)

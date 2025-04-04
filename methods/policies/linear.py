@@ -245,34 +245,49 @@ class PiecewiseLinear(AbstractPolicy):
     
     
     
-    def plot_3d_policy(self,
-                fname="PiecewiseLinearPolicy3D.png",
-                save=False):
+    def plot_surfaces_for_different_weeks(self, fname=None, save=False):
         """
-        Plots the piecewise linear policy function in 3D,
-        when use_inflow_predictor is True.
-    
+        Creates a 3D plot with inflow (X), storage (Y), release (Z),
+        and multiple surfaces for different weeks of the year.
+
+        Args:
+            fname (str): Filename to save the plot.
+            save (bool): Flag to save the plot.
         """
-        xS_max = self.Reservoir.capacity
-        xI_max = self.Reservoir.inflow_max
-        
-        xS = np.linspace(0.0, 1.0, 100)
-        xI = np.linspace(0.0, 1.0, 100)
-        
-        X, Y = np.meshgrid(xS, xI)
-        Z = np.zeros_like(X)
-        for i in range(len(xS)):
-            for j in range(len(xI)):
-                Z[i, j] = self.evaluate(X[i, j], Y[i, j])
-        fig = plt.figure()
+        inflow = np.linspace(0.0, 1.0, 30)
+        storage = np.linspace(0.0, 1.0, 30)
+        weeks = np.linspace(0.0, 1.0, 5)  # Select 5 representative weeks for clarity
+
+        I, S = np.meshgrid(inflow, storage)
+
+        fig = plt.figure(figsize=(12, 9))
         ax = fig.add_subplot(111, projection='3d')
-        ax.plot_surface(X, Y, Z, cmap='viridis')
-        ax.set_xlabel('Storage')
-        ax.set_ylabel('Inflow')
+
+        cmap = plt.cm.viridis
+
+        for idx, week in enumerate(weeks):
+            Z = np.zeros(I.shape)
+            for i in range(I.shape[0]):
+                for j in range(I.shape[1]):
+                    Z[i, j] = self.evaluate([S[i, j], I[i, j], week])
+
+            color = cmap(idx / len(weeks))
+            ax.plot_surface(I, S, Z, color=color, alpha=0.6, label=f'Week {week:.2f}')
+
+        ax.set_xlabel('Inflow')
+        ax.set_ylabel('Storage')
         ax.set_zlabel('Release')
-        ax.set_title('Piecewise Linear Policy 3D Plot')
+        ax.set_title('3D Policy Output for Different Weeks')
+
+        # Create a custom legend
+        custom_lines = [plt.Line2D([0], [0], linestyle="none", marker='s', markersize=10,
+                                markerfacecolor=cmap(i / len(weeks)), alpha=0.6)
+                        for i in range(len(weeks))]
+        ax.legend(custom_lines, [f'Week {w:.2f}' for w in weeks], loc='upper left')
+
         if save:
-            plt.savefig(f"./figures/{fname}")
+            assert fname is not None, "Filename must be provided to save the plot."
+            plt.savefig(fname)
         plt.show()
     
 
@@ -322,7 +337,7 @@ class PiecewiseLinear(AbstractPolicy):
             fname (str): Filename for saving the plot.
             save (bool): Whether to save the plot as a file.
         """
-        
-        self.plot_storage_policy(fname=fname, save=save)
+        self.plot_surfaces_for_different_weeks(fname=fname, save=save)
+        # self.plot_storage_policy(fname=fname, save=save)
         
         
