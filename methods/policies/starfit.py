@@ -126,29 +126,51 @@ class STARFIT(AbstractPolicy):
         self.weekly_NORlo_array = weekly_NORlo
 
     
-    def test_nor_constraint(self):
-        #TODO: Double check this
+    # def test_nor_constraint(self):
+    #     #TODO: Double check this
         
-        self.calculate_weekly_NOR()
-        if np.any(self.weekly_NORhi_array < self.weekly_NORlo_array):
-            return False
-        else:
-            return True
+    #     self.calculate_weekly_NOR()
+    #     if np.any(self.weekly_NORhi_array < self.weekly_NORlo_array):
+    #         return False
+    #     else:
+    #         return True
 
     def percent_storage(self, S_t):
         return S_t / self.S_cap
+
+    def standardize_inflow(self, I_t):
+        return (I_t - self.I_bar) / self.I_bar
+
+    def calculate_release_adjustment(self, S_hat, I_hat, NOR_hi, NOR_lo):
+        A_t = (S_hat - NOR_lo) / (NOR_hi - NOR_lo + 1e-6)  # Avoid divide-by-zero
+        return self.Release_c + self.Release_p1 * A_t + self.Release_p2 * I_hat
 
     def get_release(self, timestep):
         I_t = self.Reservoir.inflow_array[timestep]
         S_t = self.Reservoir.storage_array[timestep - 1] if timestep > 0 else self.Reservoir.initial_storage
 
         S_hat = self.percent_storage(S_t)
+        I_hat = self.standardize_inflow(I_t)
+
         week = self.get_week_index(timestep)
+        NOR_hi = self.calc_NOR_hi(week)
+        NOR_lo = self.calc_NOR_lo(week)
+
         harmonic = self.release_harmonic(week)
+        epsilon = self.calculate_release_adjustment(S_hat, I_hat, NOR_hi, NOR_lo)
+
+        # --- Decision Logic ---
+        if NOR_lo <= S_hat <= NOR_hi:
+            target_R = min(self.I_bar * (harmonic + epsilon) + self.I_bar, self.R_max)
+        elif S_hat > NOR_hi:
+            target_R = min((self.S_cap * (S_hat - NOR_hi) + I_t * 7) / 7, self.R_max)
+        else:
+            target_R = self.R_min
+
 
         #TODO: Double check release formula
-        target_R = (S_hat + harmonic) * self.S_cap + self.Release_c
-        target_R = np.clip(target_R, self.R_min, self.R_max)
+        #target_R = (S_hat + harmonic) * self.S_cap + self.Release_c
+        #target_R = np.clip(target_R, self.R_min, self.R_max)
 
         #TODO: Need to enforce NORhi/lo bounds
         # nor_lo = self.weekly_NORhi_array[week]
@@ -176,8 +198,6 @@ class STARFIT(AbstractPolicy):
         if fname is not None:
             plt.savefig(fname)
         plt.show()
-        
-        
         
 
     def plot(self, fname="STARFIT_Storage_vs_Release.png"):

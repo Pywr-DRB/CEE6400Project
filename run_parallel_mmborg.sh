@@ -35,13 +35,16 @@ submit_job() {
 
 
 # Arrays of policy types and reservoir names
+
 # "RBF" "PiecewiseLinear" "STARFIT"
-POLICY_TYPES=("PiecewiseLinear" "RBF")
+#POLICY_TYPES=("RBF" "PiecewiseLinear" "STARFIT")
+POLICY_TYPES=("STARFIT")
 RESERVOIR_NAMES=("fewalter")
 
 # Loop through all combinations of reservoir names and policy types
 for POLICY_TYPE in "${POLICY_TYPES[@]}"; do
     for RESERVOIR_NAME in "${RESERVOIR_NAMES[@]}"; do
+        echo "Submitting job for $POLICY_TYPE - $RESERVOIR_NAME"
         submit_job "$POLICY_TYPE" "$RESERVOIR_NAME"
     done
 done

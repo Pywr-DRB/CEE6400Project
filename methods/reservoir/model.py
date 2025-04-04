@@ -18,7 +18,9 @@ class Reservoir():
                  inflow_max = None,
                  inflow_min = None,
                  initial_storage = None,
-                 name = None):
+                 start_date = None,
+                 name = None
+                 ):
         """
         Reservoir model class, used to simulate the operation of a reservoir.
         
@@ -69,6 +71,8 @@ class Reservoir():
         # Input timeseries
         self.inflow_array = inflow
         self.T = len(inflow)
+        self.start_date = pd.to_datetime(start_date) if start_date is not None else None
+        self.doy = pd.Series(pd.date_range(start=self.start_date, periods=self.T)).dt.dayofyear.values if self.start_date is not None else None
         
         # Dates
         assert dates is not None, "Dates must be provided to the Reservoir during initalization."
