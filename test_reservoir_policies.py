@@ -20,7 +20,7 @@ from methods.sampling import generate_policy_param_samples
 # Policies to test
 test_policies = [
     # "RBF",
-    "PiecewiseLinear",
+    #"PiecewiseLinear",
     "STARFIT"
 ]
 
@@ -92,11 +92,9 @@ if __name__ == "__main__":
                 release_max =  reservoir_max_release[RESERVOIR_NAME],
                 initial_storage = None,
                 name = RESERVOIR_NAME,
+                dates = datetime_index,
             )
             
-            if POLICY_TYPE == "STARFIT":
-                reservoir.policy.dates = datetime_index
-
             # Run 
             reservoir.run()
 
@@ -123,11 +121,12 @@ if __name__ == "__main__":
 
 
             # Plot policy function
-            reservoir.policy.plot()
+            #reservoir.policy.plot()
 
             # Plot STARFIT 3D policy surface
             if POLICY_TYPE == "STARFIT":
                 reservoir.policy.plot_policy_surface()
+                reservoir.policy.plot_nor()
             
             # Plot sim and obs dynamics (storage and release)
             reservoir.plot(
