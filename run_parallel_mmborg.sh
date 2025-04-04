@@ -2,7 +2,7 @@
 #SBATCH --job-name=ResBorg
 #SBATCH --output=./logs/ResBorg.out
 #SBATCH --error=./logs/ResBorg.err
-#SBATCH --nodes=2
+#SBATCH --nodes=3
 #SBATCH --ntasks-per-node=40
 #SBATCH --exclusive
 
@@ -33,12 +33,13 @@ submit_job() {
     wait
 }
 
+
 # Arrays of policy types and reservoir names
-# "RBF" "PiecewiseLinear"
-POLICY_TYPES=("STARFIT")
+# "RBF" "PiecewiseLinear" "STARFIT"
+POLICY_TYPES=("PiecewiseLinear" "RBF")
 RESERVOIR_NAMES=("fewalter")
 
-# Loop through all combinations
+# Loop through all combinations of reservoir names and policy types
 for POLICY_TYPE in "${POLICY_TYPES[@]}"; do
     for RESERVOIR_NAME in "${RESERVOIR_NAMES[@]}"; do
         submit_job "$POLICY_TYPE" "$RESERVOIR_NAME"

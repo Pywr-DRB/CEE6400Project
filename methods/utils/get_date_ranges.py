@@ -1,6 +1,4 @@
 import pandas as pd
-import numpy as np
-from methods.load.observations import load_observations
 
 def get_overlapping_datetime_indices(*dfs):
     """

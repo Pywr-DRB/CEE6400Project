@@ -16,9 +16,10 @@ import numpy as np
 from pathnavigator import PathNavigator
 
 from methods.reservoir.model import Reservoir
-from methods.load.observations import load_observations
+from methods.load.observations import get_observational_training_data
+
 from methods.metrics.objectives import ObjectiveCalculator
-from methods.utils import get_overlapping_datetime_indices
+
 from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
 from methods.config import policy_n_params, policy_param_bounds
 from methods.config import SEED, METRICS, EPSILONS
@@ -36,7 +37,6 @@ POLICY_TYPE = sys.argv[1]
 RESERVOIR_NAME = sys.argv[2]
 
 
-
 ##### Settings ####################################################################
 
 ### Policy settings
@@ -51,7 +51,7 @@ EPSILONS = EPSILONS + EPSILONS
 ### Borg Settings
 NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
 
-NFE = 10000            # Number of function evaluation 
+NFE = 30000            # Number of function evaluation 
 runtime_freq = 250      # output frequency
 islands = 3             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
 borg_seed = SEED
@@ -63,28 +63,19 @@ SCALE_INFLOW = True   # if True, scale inflow based on observed release volume
 
 ### Load observed data #######################################
 
-inflow_obs = load_observations(datatype='inflow', 
-                            reservoir_name=RESERVOIR_NAME, 
-                            data_dir="./data/", as_numpy=False)
+inflow_obs, release_obs, storage_obs = get_observational_training_data(
+    reservoir_name=RESERVOIR_NAME,
+    data_dir = "./data/",
+    as_numpy=False
+)
 
-release_obs = load_observations(datatype='release', 
-                                reservoir_name=RESERVOIR_NAME, 
-                                data_dir="./data/", as_numpy=False)
+# Keep datetime
+datetime = inflow_obs.index
 
-storage_obs = load_observations(datatype='storage',
-                                reservoir_name=RESERVOIR_NAME, 
-                                data_dir="./data/", as_numpy=False)
-
-# get overlapping datetime indices, 
-# when all data is available for this reservoir
-dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
-start_date = dt[0]
-
-# subset data
-inflow_obs = inflow_obs.loc[dt,:].values
-release_obs = release_obs.loc[dt,:].values
-storage_obs = storage_obs.loc[dt,:].values
-
+# Convert obs to numpy arrays
+inflow_obs = inflow_obs.values
+release_obs = release_obs.values
+storage_obs = storage_obs.values
 
 # scale inflow, so that the total inflow volume is equal to the total release volume
 if SCALE_INFLOW:
@@ -111,13 +102,13 @@ def evaluate(*vars):
     ### Setup reservoir
     reservoir = Reservoir(
         inflow = inflow_obs,
+        dates= datetime,
         capacity = reservoir_capacity[RESERVOIR_NAME],
         policy_type = POLICY_TYPE,
         policy_params = list(vars),
         release_min = reservoir_min_release[RESERVOIR_NAME],
         release_max = reservoir_max_release[RESERVOIR_NAME],
         initial_storage = storage_obs[0],
-        start_date = start_date,   #TODO: Change start_date to match Marilyn's reservoir.date format when ready # RBF uses start_date
         name = RESERVOIR_NAME,
     )
     

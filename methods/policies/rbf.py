@@ -5,9 +5,6 @@ from methods.policies.abstract_policy import AbstractPolicy
 from methods.config import policy_n_params, policy_param_bounds
 from methods.config import n_rbfs, n_rbf_inputs
 
-from methods.config import SEED, DEBUG
-
-
 class RBF(AbstractPolicy):
     """
     Radial Basis Function (RBF) policy class for reservoir operation.
@@ -44,12 +41,13 @@ class RBF(AbstractPolicy):
     
     def __init__(self,
                  Reservoir,
-                 policy_params,
-                 debug=DEBUG,):
+                 policy_params):
         
+        # Reservoir sim data
         self.Reservoir = Reservoir
+        self.dates = Reservoir.dates
         
-        
+        # Policy parameters
         self.nRBFs = n_rbfs
         self.n_params = policy_n_params["RBF"]
         self.param_bounds = policy_param_bounds["RBF"]
@@ -57,20 +55,17 @@ class RBF(AbstractPolicy):
         
         # X (input) max and min values
         # used to normalize the input data
-        # X = [storage, inflow, day_of_year]
+        # X = [storage, inflow, week_of_year]
         self.x_min = np.array([0.0, 
                                self.Reservoir.inflow_min,
-                               0.0])
+                               1.0])
         
         self.x_max = np.array([self.Reservoir.capacity, 
                                self.Reservoir.inflow_max,
-                               365.0])
+                               53.0])
         
         
         self.policy_params = policy_params
-        
-        # check and assign params
-        self.validate_policy_params()
         self.parse_policy_params()
         
         
@@ -100,7 +95,6 @@ class RBF(AbstractPolicy):
         # d inputs (storage, inflow)
         # params = [ [w]*n, [c_ij]*n*d, [r_ij]*n*d ]
         
-    
         w = self.policy_params[:self.nRBFs]
         
         start_idx = self.nRBFs
@@ -174,19 +168,15 @@ class RBF(AbstractPolicy):
         # Get state variables
         I_t = self.Reservoir.inflow_array[timestep]
         S_t = self.Reservoir.initial_storage if timestep == 0 else self.Reservoir.storage_array[timestep - 1]
-        day_of_year = self.Reservoir.doy[timestep] if self.Reservoir.doy is not None else None
-        
-        if day_of_year is None:
-            print("Day of year is None. start_date must be set during initalization.")
-            return None            
+        week_of_year = self.dates[timestep].isocalendar().week
 
         # make sure I_t and S_t are float
         I_t = float(I_t)
         S_t = float(S_t)
-        day_of_year = float(day_of_year)
+        week_of_year = float(week_of_year)
     
-        # inputs  = [storage, inflow]
-        X = np.array([S_t, I_t, day_of_year])
+        # inputs  = [storage, inflow, week_of_year]
+        X = np.array([S_t, I_t, week_of_year])
         
         # Normalize X
         X_norm = np.zeros(self.n_inputs)

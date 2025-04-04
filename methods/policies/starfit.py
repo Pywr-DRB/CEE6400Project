@@ -1,12 +1,11 @@
-from methods.policies.abstract_policy import AbstractPolicy
 import numpy as np
 import pandas as pd
 from math import sin, cos, pi
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
+from methods.policies.abstract_policy import AbstractPolicy
 from methods.config import policy_n_params, policy_param_bounds
-
+from methods.config import DATA_DIR, FIG_DIR
 
 class STARFIT(AbstractPolicy):
     """
@@ -23,15 +22,15 @@ class STARFIT(AbstractPolicy):
         if self.reservoir_name is None:
             raise ValueError("Reservoir object must have a 'name' attribute.")
 
-        self.starfit_df = pd.read_csv("data/drb_model_istarf_conus.csv")
+        self.dates = self.Reservoir.dates
+
+        self.starfit_df = pd.read_csv(f"{DATA_DIR}/drb_model_istarf_conus.csv")
         self.load_starfit_params()
 
         self.n_params = policy_n_params["STARFIT"]
         self.param_bounds = policy_param_bounds["STARFIT"]
         self.policy_params = policy_params
         self.parse_policy_params(policy_params)
-
-        self.dates = None  # To be assigned externally for date-aware seasonal logic
 
     def load_starfit_params(self):
         if self.reservoir_name not in self.starfit_df["reservoir"].values:
@@ -50,6 +49,9 @@ class STARFIT(AbstractPolicy):
         self.R_min = (res_data["Release_min"] + 1) * self.I_bar
 
     def parse_policy_params(self, policy_params):
+        
+        self.validate_policy_params()
+        
         if len(policy_params) != self.n_params:
             raise ValueError(f"Expected 17 parameters, but received {len(policy_params)}.")
 
@@ -62,8 +64,6 @@ class STARFIT(AbstractPolicy):
             self.Release_beta1, self.Release_beta2,
             self.Release_c, self.Release_p1, self.Release_p2
         ) = policy_params
-        
-        self.validate_policy_params()
         
         # Setup the self.weekly_NORhi/lo_array        
         self.calculate_weekly_NOR()
@@ -81,10 +81,7 @@ class STARFIT(AbstractPolicy):
         return cos(N * pi * (t + 39) / 52)
 
     def get_week_index(self, timestep):
-        if self.dates is not None:
-            return self.dates[timestep].isocalendar().week % 52
-        else:
-            return timestep % 52
+        return self.dates[timestep].isocalendar().week % 52
 
     def release_harmonic(self, time):
         return (
@@ -158,6 +155,30 @@ class STARFIT(AbstractPolicy):
         # nor_hi = self.weekly_NORlo_array[week]
         
         return self.enforce_constraints(target_R)
+
+    def plot_nor(self, 
+                 percent_storage=True,
+                 fname=None):
+        """
+        Plot of NORhi and NORlo w/r/t week of year.
+        
+        Args:
+            percent_storage : 
+            fname (str)
+        """
+        
+        nor_hi = self.weekly_NORhi_array
+        nor_lo = self.weekly_NORlo_array
+        xs = np.arange(1, 53)
+        
+        fig, ax = plt.subplots()        
+        ax.fill_between(xs, nor_lo, nor_hi)
+        if fname is not None:
+            plt.savefig(fname)
+        plt.show()
+        
+        
+        
 
     def plot(self, fname="STARFIT_Storage_vs_Release.png"):
         fig, ax = plt.subplots(figsize=(10, 6))

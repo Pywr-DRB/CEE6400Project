@@ -46,6 +46,6 @@ if __name__ == "__main__":
     plt.scatter(objectives[:, 0], objectives[:, 1])
     plt.xlabel("Release -NSE")
     plt.ylabel("Release pBias")
-    plt.title("Random Samples")
+    plt.title(f"{policy_type} Random Parameter Samples")
     plt.savefig(f"{FIG_DIR}/random_samples/{policy_type}_random_samples.png")
     plt.show()

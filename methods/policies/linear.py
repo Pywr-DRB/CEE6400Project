@@ -1,11 +1,9 @@
-from methods.policies.abstract_policy import AbstractPolicy
 import numpy as np
 import matplotlib.pyplot as plt
 
+from methods.policies.abstract_policy import AbstractPolicy
 from methods.config import policy_n_params, policy_param_bounds
-from methods.config import n_segments, use_inflow_predictor
-
-from methods.config import SEED, DEBUG
+from methods.config import n_segments, n_piecewise_linear_inputs
 
 
 class PiecewiseLinear(AbstractPolicy):
@@ -32,9 +30,7 @@ class PiecewiseLinear(AbstractPolicy):
 
     def __init__(self, 
                  Reservoir, 
-                 policy_params,
-                 use_inflow_predictor=use_inflow_predictor,
-                 debug=DEBUG):
+                 policy_params):
         """
         Initializes the PiecewiseLinear policy.
 
@@ -46,14 +42,25 @@ class PiecewiseLinear(AbstractPolicy):
                 - The last M values define θ_i.
         """
         self.Reservoir = Reservoir
-        self.use_inflow_predictor = use_inflow_predictor
-        self.debug = debug
+        self.dates = Reservoir.dates
         
         # num of linear segments
         self.n_segments = n_segments
+        self.n_inputs = n_piecewise_linear_inputs
         self.param_bounds = policy_param_bounds["PiecewiseLinear"]
         self.n_params = policy_n_params["PiecewiseLinear"]
-          
+        
+        # X (input) max and min values
+        # used to normalize the input data
+        # X = [storage, inflow, week_of_year]
+        self.x_min = np.array([0.0, 
+                               self.Reservoir.inflow_min,
+                               1.0])
+        
+        self.x_max = np.array([self.Reservoir.capacity, 
+                               self.Reservoir.inflow_max,
+                               53.0])
+        
         self.policy_params = policy_params
         self.parse_policy_params()
 
@@ -73,6 +80,7 @@ class PiecewiseLinear(AbstractPolicy):
         
     def parse_policy_params(self):
         """Parses policy parameters into segment boundaries and slopes."""
+        
         self.validate_policy_params()
 
         def parse_segment_params(segment_params, M = self.n_segments):
@@ -100,39 +108,51 @@ class PiecewiseLinear(AbstractPolicy):
                 intercepts.append(b)
             return x_bounds, slopes, intercepts
 
-        # if using inflow predictor, split the policy params into two halves
-        # one for storage and one for inflow functions
-        if self.use_inflow_predictor:
-            midpoint = len(self.policy_params) // 2
-            s_params = self.policy_params[:midpoint]
-            i_params = self.policy_params[midpoint:]
 
-            (self.storage_bounds,
-            self.storage_slopes,
-            self.storage_intercepts) = parse_segment_params(s_params)
+        ### Params contains [storage_params, inflow_params, week_of_year_params]
+        # split params in thirds
 
-            (self.inflow_bounds,
-            self.inflow_slopes,
-            self.inflow_intercepts) = parse_segment_params(i_params)
-        else:
-            (self.storage_bounds,
-            self.storage_slopes,
-            self.storage_intercepts) = parse_segment_params(self.policy_params)
-
-
-
-    def evaluate(self, S, I=None):
+        n_param_subset = len(self.policy_params) // 3
         
+        s_params = self.policy_params[:n_param_subset]
+        i_params = self.policy_params[n_param_subset:(2 * n_param_subset)]
+        w_params = self.policy_params[(2 * n_param_subset):]
+
+        # Calculate and store the segment boundaries, slopes, and intercepts
+        # for storage, inflow, and week of year functions
+        (self.storage_bounds,
+        self.storage_slopes,
+        self.storage_intercepts) = parse_segment_params(s_params)
+
+        (self.inflow_bounds,
+        self.inflow_slopes,
+        self.inflow_intercepts) = parse_segment_params(i_params)
+
+        (self.week_bounds,
+        self.week_slopes,
+        self.week_intercepts) = parse_segment_params(w_params)
+
+
+    def evaluate(self, X):
         """
         Evaluate the piecewise linear policy function.
         
         Args:
-            S (float): Prior storage level.
-            I (float, optional): Current inflow. Defaults to None.
-            
+            X (list): A list of input values, including normalized:
+                - Storage (S)
+                - Inflow (I)
+                - Week of year (W)
+        
         Returns:
             float: The computed release.
         """
+        # Separate inputs [storage, inflow, week_of_year]
+        S, I, W = X
+        
+        assert I is not None, "Inflow input required but not provided."
+        assert S is not None, "Storage input required but not provided."
+        assert W is not None, "Week of year input required but not provided."
+
         
         def segment_eval(x, bounds, slopes, intercepts):
             """
@@ -165,20 +185,20 @@ class PiecewiseLinear(AbstractPolicy):
                 return slopes[-1] * dx + intercepts[-1]
             raise ValueError(f"Value {x} outside bounds: {bounds}")
 
-        z = segment_eval(S, self.storage_bounds, self.storage_slopes, self.storage_intercepts)
-        z = max(0.0, min(1.0, z)) 
+        zS = segment_eval(S, self.storage_bounds, self.storage_slopes, self.storage_intercepts)
+        zS = max(0.0, min(1.0, zS)) 
         
-        if self.use_inflow_predictor:
-            assert I is not None, "Inflow input required but not provided."
-            zI = segment_eval(I, self.inflow_bounds, self.inflow_slopes, self.inflow_intercepts)
-            zI = max(0.0, min(1.0, zI))
-            
-            # divide by 2 to account for the two predictors
-            z = (z + zI)/2.0
-            
+        zI = segment_eval(I, self.inflow_bounds, self.inflow_slopes, self.inflow_intercepts)
+        zI = max(0.0, min(1.0, zI))
+        
+        zW = segment_eval(W, self.week_bounds, self.week_slopes, self.week_intercepts)
+        zW = max(0.0, min(1.0, zW))
+        
+        # Compute the final release value
+        z = (zS + zI + zW) / 3.0
+                    
         # Impose bound limits
         z = max(0.0, min(1.0, z)) 
-        
         return z
 
 
@@ -198,22 +218,29 @@ class PiecewiseLinear(AbstractPolicy):
         # Get state variables
         I_t = self.Reservoir.inflow_array[timestep]
         S_t = self.Reservoir.initial_storage if timestep == 0 else self.Reservoir.storage_array[timestep - 1]
+        week_of_year = self.dates[timestep].isocalendar().week
 
-        # scale S and I to [0, 1]
-        S_norm = S_t / self.Reservoir.capacity
-        I_norm = I_t / self.Reservoir.inflow_max
-
-        if self.use_inflow_predictor:
-            z = self.evaluate(S_norm, I_norm)
-        else:
-            z = self.evaluate(S_norm) 
+        # make sure I_t and S_t are float
+        I_t = float(I_t)
+        S_t = float(S_t)
+        week_of_year = float(week_of_year)
+    
+        # inputs  = [storage, inflow, week_of_year]
+        X = np.array([S_t, I_t, week_of_year])
         
-        # scale back to [0, release_max]
-        release = z * self.Reservoir.release_max
+        # Normalize X
+        X_norm = np.zeros(self.n_inputs)
+        for i in range(self.n_inputs):
+            X_norm[i] = (X[i] - self.x_min[i]) / (self.x_max[i] - self.x_min[i])        
+            X_norm[i] = max(0.0, min(1.0, X_norm[i])) # enforce bounds [0, 1]
+        
+        # Compute release
+        release  = self.evaluate(X_norm) * self.Reservoir.release_max
         
         # Enforce constraints (defined in AbstractPolicy)
         release = self.enforce_constraints(release)
         release = min(release, S_t + I_t)
+        
         return release
     
     
@@ -296,9 +323,6 @@ class PiecewiseLinear(AbstractPolicy):
             save (bool): Whether to save the plot as a file.
         """
         
-        if self.use_inflow_predictor:
-            self.plot_3d_policy(fname=fname, save=save)
-        else:
-            self.plot_storage_policy(fname=fname, save=save)
+        self.plot_storage_policy(fname=fname, save=save)
         
         

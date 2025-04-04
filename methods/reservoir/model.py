@@ -12,12 +12,12 @@ class Reservoir():
                  capacity,
                  policy_type,
                  policy_params,
+                 dates = None,
                  release_min = None,
                  release_max = None,
                  inflow_max = None,
                  inflow_min = None,
                  initial_storage = None,
-                 start_date = None,
                  name = None):
         """
         Reservoir model class, used to simulate the operation of a reservoir.
@@ -46,9 +46,9 @@ class Reservoir():
             Minimum inflow used for scaling inflow inputs. If None, use 0.0.
         initial_storage : float, optional
             Initial storage level of the reservoir. Default is 0.8 * capacity.
-        start_date : str, optional
-            Start date of the simulation; used to determine day of year input. Default is None.
-            
+        dates : pd.DatetimeIndex, optional
+            Dates for the simulation timeseries. Default is None. 
+        
         Methods
         -------
         run()
@@ -69,8 +69,10 @@ class Reservoir():
         # Input timeseries
         self.inflow_array = inflow
         self.T = len(inflow)
-        self.start_date = pd.to_datetime(start_date) if start_date is not None else None
-        self.doy = pd.Series(pd.date_range(start=self.start_date, periods=self.T)).dt.dayofyear.values if self.start_date is not None else None
+        
+        # Dates
+        assert dates is not None, "Dates must be provided to the Reservoir during initalization."
+        self.dates = pd.to_datetime(dates)
         
         # Reservoir characteristics
         self.capacity = capacity

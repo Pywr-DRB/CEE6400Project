@@ -11,14 +11,13 @@ from methods.utils import get_overlapping_datetime_indices
 
 from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
 from methods.config import policy_n_params, policy_param_bounds
-from methods.config import SEED, cfs_to_mgd, METRICS
+from methods.config import SEED, cfs_to_mgd, METRICS, OUTPUT_DIR, FIG_DIR
 
-from methods.sampling import generate_policy_param_samples
 
 # Policies to test
 test_policies = [
-    "RBF",
-    # "PiecewiseLinear"
+    # "RBF",
+    "PiecewiseLinear"
 ]
 
 # Reservoirs to test
@@ -27,10 +26,13 @@ test_reservoirs = [
     # 'beltzvilleCombined',
 ]
 
+policy_type = 'PiecewiseLinear'
+reservoir_name = 'fewalter'
+NFE = 30000
 
 
 # load parameters from Borg output
-fname = "./output/MMBorg_3M_RBF_fewalter_nfe10000_seed71.csv"
+fname = f"{OUTPUT_DIR}/MMBorg_3M_{policy_type}_{reservoir_name}_nfe{NFE}_seed71.csv"
 solutions = pd.read_csv(fname)
 
 var_cols = [f'var{i+1}' for i in range(10)]
