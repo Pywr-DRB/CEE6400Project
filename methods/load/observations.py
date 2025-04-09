@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 
 from methods.utils import get_overlapping_datetime_indices
 
@@ -47,7 +48,8 @@ def load_observations(datatype,
 
 def get_observational_training_data(reservoir_name, 
                            data_dir,
-                           as_numpy=True):
+                           as_numpy=True,
+                           scaled_inflows=True):
     """
     Loads training data (inflow, release and storage)
     for a given reservoir, for maximum overlapping timeperiod.
@@ -64,10 +66,16 @@ def get_observational_training_data(reservoir_name,
     assert os.path.exists(data_dir), \
         f"Data directory '{data_dir}' does not exist. Please check the data_dir path."
     
-    
-    inflow_obs = load_observations(datatype='inflow', 
-                                reservoir_name=reservoir_name, 
-                                data_dir=data_dir, as_numpy=False)
+    if scaled_inflows:
+        # Load scaled inflow observations
+        inflow_obs = load_observations(datatype='inflow_scaled', 
+                                       reservoir_name=reservoir_name, 
+                                       data_dir=data_dir, as_numpy=False)
+    else:
+        # Load raw inflow observations
+        inflow_obs = load_observations(datatype='inflow', 
+                                    reservoir_name=reservoir_name, 
+                                    data_dir=data_dir, as_numpy=False)
 
     release_obs = load_observations(datatype='release', 
                                     reservoir_name=reservoir_name, 
@@ -95,3 +103,57 @@ def get_observational_training_data(reservoir_name,
     else:
         # Return the DataFrames
         return inflow_obs, release_obs, storage_obs
+
+
+def scale_inflow_observations(inflow_obs, release_obs):
+    """
+    Scales inflow observations based on release observations,
+    assuming that total inflow volme is equal to total release volume.
+    
+    Scaling is applied on a monthly basis.
+    
+    Args:
+        inflow_obs (pd.DataFrame): Inflow observations.
+        release_obs (pd.DataFrame): Release observations.
+    
+    Returns:
+        pd.DataFrame: Scaled inflow observations.
+    """
+    assert isinstance(inflow_obs, pd.DataFrame), \
+        "inflow_obs must be a pandas DataFrame."
+    assert isinstance(release_obs, pd.DataFrame), \
+        "release_obs must be a pandas DataFrame."
+    assert inflow_obs.index.equals(release_obs.index), \
+        "inflow_obs and release_obs must have the same index."
+    
+    # get monthly inflow and release volumes
+    inflow_monthly = inflow_obs.resample('MS').sum()
+    release_monthly = release_obs.resample('MS').sum()
+    
+    # get monthly scaling factor
+    scale_factor = release_monthly / inflow_monthly
+    
+    # make sure scaling is >= 1.0
+    scale_factor = scale_factor.clip(lower=1.0)
+    
+    # apply scaling factor to inflow observations
+    inflow_scaled = inflow_obs.copy()
+    
+    # Apply for each month, year in the series
+    for year in inflow_scaled.index.year.unique():
+        for month in inflow_scaled.index.month.unique():
+            
+            # skip if no data for this month
+            datetime = pd.to_datetime(f"{year}-{month}-01")
+            if datetime not in inflow_scaled.index:
+                continue
+            
+            # Get the scaling factor for this month
+            scale = scale_factor.loc[(scale_factor.index.year == year) &
+                                     (scale_factor.index.month == month)].values[0]
+            
+            # Apply the scaling factor to the inflow observations
+            inflow_scaled.loc[(inflow_scaled.index.year == year) & 
+                             (inflow_scaled.index.month == month), :] *= scale
+    
+    return inflow_scaled

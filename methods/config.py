@@ -40,11 +40,10 @@ EPSILONS = [0.001] * len(METRICS)  # Epsilon values for Borg
 
 ### Reservoirs ###############
 reservoir_options = [
-    'blueMarsh',
     'beltzvilleCombined',
     'fewalter',
     'prompton',
-]
+] #blueMarsh not ready 
 
 
 ### Polcy Settings ###############
