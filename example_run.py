@@ -5,7 +5,7 @@ import pandas as pd
 from methods.load import load_observations
 
 from methods.metrics.objectives import ObjectiveCalculator
-from config import reservoir_min_release, reservoir_max_release, reservoir_capacity
+from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
 
 # Set reservoir name
 RESERVOIR_NAME = 'fewalter'
@@ -21,18 +21,23 @@ observed = load_observations(datatype='release', reservoir_name=RESERVOIR_NAME, 
 test_params = {
     "PiecewiseLinear": [3, 0.3, 0.6, 0.78, 0.2, 1.0],
     "RBF": [],
-    "STARFIT": np.array([  # Example STARFIT optimization parameters
-        0.5, 0.3, 0.7, 0.2, 0.4,  # NORhi parameters
-        0.3, 0.1, 0.5, 0.1, 0.2,  # NORlo parameters
-        0.4, 0.3, 0.6, 0.5,  # Seasonal release params
-        1.0, 0.7, 0.8  # Release coefficients
-    ])}
+    "STARFIT": np.array([
+        15.08, 5.0, 20.0,         # NORhi mu, min, max
+        0.0, -15.0,               # NORhi alpha, beta
+        9.0, 1.6, 14.2,           # NORlo mu, min, max
+        -1.0, -30.0,              # NORlo alpha, beta
+        0.2118, -0.0357, 0.1302, -0.0248,  # Release harmonic
+        -0.123, 0.183, 0.732     # Release adjustment
+    ])
+}
 
-
+#datetime
+datetime_index = inflow_obs.loc[dt,:].index
 
 # Define the reservoir
 reservoir = Reservoir(
     inflow = inflow,
+    dates= datetime
     capacity = reservoir_capacity[RESERVOIR_NAME],
     policy_type = POLICY_TYPE,
     policy_params = test_params[POLICY_TYPE],

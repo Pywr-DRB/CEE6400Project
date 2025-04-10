@@ -21,7 +21,18 @@ venv*
 wsl_venv*
 /venv*
 
+
 MMBorgMOEA/
 lib*
 borg.py
 MOEAFramework-5.0/
+
+#Random stuff
+logs/
+data_test/
+outputs/
+# Ignore example files
+example_nsga copy.py
+# Ignore specific figure files
+figures/policy_functions/
+figures/solution_dynamics/

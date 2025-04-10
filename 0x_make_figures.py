@@ -7,7 +7,7 @@ from methods.plotting.plot_pareto_front_comparison import plot_pareto_front_comp
 if __name__ == "__main__":
     
     
-    POLICY_TYPES = ["RBF", "PiecewiseLinear"]
+    POLICY_TYPES = ["RBF", "PiecewiseLinear", "STARFIT"]
     reservoir_name = "fewalter"
     NFE = 30000
     

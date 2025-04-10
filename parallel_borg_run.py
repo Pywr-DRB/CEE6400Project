@@ -20,6 +20,10 @@ from methods.load.observations import get_observational_training_data
 
 from methods.metrics.objectives import ObjectiveCalculator
 
+from methods.load.observations import load_observations
+
+from methods.utils import get_overlapping_datetime_indices
+
 from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
 from methods.config import policy_n_params, policy_param_bounds
 from methods.config import SEED, METRICS, EPSILONS
@@ -49,9 +53,8 @@ NOBJS = len(METRICS) * 2   # x2 since storage and release objectives
 EPSILONS = EPSILONS + EPSILONS
 
 ### Borg Settings
- # NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
-NCONSTRS = 0
-NFE = 1000         # Number of function evaluation 
+NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
+NFE = 1000       # Number of function evaluation 
 
 runtime_freq = 250      # output frequency
 islands = 3             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
@@ -73,11 +76,24 @@ inflow_obs, release_obs, storage_obs = get_observational_training_data(
 # Keep datetime
 datetime = inflow_obs.index
 
+release_obs = load_observations(datatype='release', 
+                                reservoir_name=RESERVOIR_NAME, 
+                                data_dir="./data/", as_numpy=False)
 
-# Convert obs to numpy arrays
-inflow_obs = inflow_obs.values
-release_obs = release_obs.values
-storage_obs = storage_obs.values
+storage_obs = load_observations(datatype='storage',
+                                reservoir_name=RESERVOIR_NAME, 
+                                data_dir="./data/", as_numpy=False)
+
+# get overlapping datetime indices, 
+# when all data is available for this reservoir
+dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
+datetime_index = inflow_obs.loc[dt,:].index
+
+# subset data
+inflow_obs = inflow_obs.loc[dt,:].values
+release_obs = release_obs.loc[dt,:].values
+storage_obs = storage_obs.loc[dt,:].values
+
 
 # scale inflow, so that the total inflow volume is equal to the total release volume
 if SCALE_INFLOW:
@@ -104,7 +120,7 @@ def evaluate(*vars):
     ### Setup reservoir
 
     reservoir = Reservoir(
-        inflow = inflow_obs,
+        inflow = inflow_obs, # or inflow_scaled or inflow_obs
         dates= datetime,
         capacity = reservoir_capacity[RESERVOIR_NAME],
         policy_type = POLICY_TYPE,
@@ -114,23 +130,15 @@ def evaluate(*vars):
         initial_storage = None,
         name = RESERVOIR_NAME
     )
-                
-    # Re-assign the reservoir policy params
+              
     if POLICY_TYPE == 'STARFIT':
-        reservoir.policy.parse_policy_params(list(vars))
-    else:
-        reservoir.policy.parse_policy_params() # reservoir.policy.policy_params is already set
-    
-    ## Check constraints 
-    #TODO: Double check this (how does the constraint work?)
-    #if POLICY_TYPE == 'STARFIT' and NCONSTRS > 0:
-    #    # test that NOR range is valid
-    #    valid = reservoir.policy.test_nor_constraint()
-    #    if not valid:
-    #        objs = [9999.99] * NOBJS
-    #        return objs, False
+        valid = reservoir.policy.test_nor_constraint()
+        if not valid:
+            with open("violated_params_borg.log", "a") as f:
+                f.write(f"[FAIL] {RESERVOIR_NAME} @ {str(pd.Timestamp.now())}:\n")
+                f.write(f"{list(vars)}\n\n")
+            return [9999.99] * NOBJS, [1.0]
 
-    
     # Reset the reservoir simulation
     reservoir.reset()
     
@@ -155,7 +163,7 @@ def evaluate(*vars):
         objectives.append(obj)
         
     if NCONSTRS > 0:    
-        return objectives, True
+        return objectives, [0.0]
     else:
         return objectives,
 

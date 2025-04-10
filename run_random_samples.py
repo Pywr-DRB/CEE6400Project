@@ -6,7 +6,7 @@ from methods.sampling import generate_policy_param_samples
 from methods.config import FIG_DIR
 
 
-policy_type = "RBF"   # "RBF", "PiecewiseLinear"
+policy_type = "STARFIT"   # "RBF", "PiecewiseLinear"
 
 # The parallel_borg_run.py script is designed to be run from the command line.
 # It expects two arguments (sys.argv) to be the policy_type and reservoir_name.

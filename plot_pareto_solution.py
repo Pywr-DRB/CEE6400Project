@@ -15,13 +15,13 @@ from methods.config import SEED, cfs_to_mgd, METRICS, OUTPUT_DIR, FIG_DIR, DATA_
 
 
 # Policies to test
-POLICY_TYPE = 'PiecewiseLinear'
+POLICY_TYPE = 'STARFIT'
 RESERVOIR_NAME = 'fewalter'
 NFE = 30000
 
-
 # load parameters from Borg output
 fname = f"{OUTPUT_DIR}/MMBorg_3M_{POLICY_TYPE}_{RESERVOIR_NAME}_nfe{NFE}_seed71.csv"
+
 solutions = pd.read_csv(fname)
 
 var_cols = [c for c in solutions.columns if 'var' in c]

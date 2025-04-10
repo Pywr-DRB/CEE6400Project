@@ -26,7 +26,6 @@ submit_job() {
 
     # Run with MPI
     time mpirun --oversubscribe -np $n_processors python parallel_borg_run.py "$POLICY_TYPE" "$RESERVOIR_NAME"
-    
     echo "Finished: POLICY_TYPE=$POLICY_TYPE, RESERVOIR_NAME=$RESERVOIR_NAME"
     echo "#############################################"
     
@@ -38,7 +37,6 @@ submit_job() {
 
 # "RBF" "PiecewiseLinear" "STARFIT"
 POLICY_TYPES=("RBF" "PiecewiseLinear" "STARFIT")
-# POLICY_TYPES=("STARFIT")
 RESERVOIR_NAMES=("fewalter")
 
 # Loop through all combinations of reservoir names and policy types

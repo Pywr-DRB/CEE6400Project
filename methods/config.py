@@ -15,7 +15,7 @@ DEBUG = True
 CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Other directories relative to this file
-DATA_DIR = os.path.join(CONFIG_DIR, "../data")
+DATA_DIR = os.path.join(CONFIG_DIR, "../obs_data")
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
 OUTPUT_DIR = os.path.join(CONFIG_DIR, "../outputs")
@@ -69,27 +69,54 @@ n_starfit_params = 17         # Number of parameters in STARFIT policy
 #                  Release_alpha1, Release_alpha2, Release_beta1, Release_beta2,
 #                  Release_c, Release_p1, Release_p2]
 
+
 starfit_param_bounds = [
-    [14.0244, 16.1356],   # NORhi_mu
-    [0.0, 2.0],           # NORhi_min
-    [93.0, 100.0],        # NORhi_max
-    [-0.2461, -0.2139],   # NORhi_alpha
-    [-2.1507, -1.8693],   # NORhi_beta
-    [11.6994, 13.4606],   # NORlo_mu
-    [11.4483, 13.1717],   # NORlo_min
-    [14.4336, 16.6064],   # NORlo_max
-    [0.1860, 0.2140],     # NORlo_alpha
-    [-4.3656, -3.7944],   # NORlo_beta
-    [-4.08, 240.0],       # Release_alpha1
+    [0.0, 100.0],         # NORhi_mu
+    [0.0, 79.24],         # NORhi_min
+    [0.07, 100.0],        # NORhi_max
+    [-2, 2],              # NORhi_alpha
+    [-4, 5.21],       # NORhi_beta
+
+    [0.0, 40],         # NORlo_mu
+    [0.0, 40],         # NORlo_min
+    [0, 40],        # NORlo_max
+    [-14.41, 11.16],      # NORlo_alpha
+    [-45.21, 5.72],       # NORlo_beta
+
+    [-4.088, 240.9161],   # Release_alpha1
     [-0.5901, 84.7844],   # Release_alpha2
     [-1.2104, 83.9024],   # Release_beta1
     [-52.3545, 0.4454],   # Release_beta2
-    [-1.4, 63.516],       # Release_c
-    [0.0, 17.02],         # Release_p1
-    [0.0, 0.957]          # Release_p2
+
+    [-1.414, 63.516],     # Release_c
+    [0.0, 97.625],        # Release_p1
+    [0.0, 0.957],         # Release_p2
 ]
 
-## TODO: Add a constraint to Borg so that NOR hi doesnt cross NOR lo
+
+#this is a larger subset to see if I get better solutions
+starfit_param_bounds_full = [
+    [0.0, 100.0],         # NORhi_mu
+    [0.0, 79.24],         # NORhi_min
+    [0.07, 100.0],        # NORhi_max
+    [-10.95, 79.63],      # NORhi_alpha
+    [-44.29, 5.21],       # NORhi_beta
+
+    [0.0, 88.77],         # NORlo_mu
+    [0.0, 82.17],         # NORlo_min
+    [1.76, 100.0],        # NORlo_max
+    [-14.41, 11.16],      # NORlo_alpha
+    [-45.21, 5.72],       # NORlo_beta
+
+    [-4.088, 240.9161],   # Release_alpha1
+    [-0.5901, 84.7844],   # Release_alpha2
+    [-1.2104, 83.9024],   # Release_beta1
+    [-52.3545, 0.4454],   # Release_beta2
+
+    [-1.414, 63.516],     # Release_c
+    [0.0, 97.625],        # Release_p1
+    [0.0, 0.957],         # Release_p2
+]
 
 ## Piecewise Linear
 n_segments = 3         # linear segments 

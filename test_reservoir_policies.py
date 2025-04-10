@@ -31,13 +31,25 @@ test_reservoirs = [
 ]
 
 
-# Random draw of parameters from LHS
-n_samples =  1
+# # Random draw of parameters from LHS
+# n_samples =  1
+# test_params = {
+#     p : generate_policy_param_samples(p, n_samples, 
+#                                       sample_type='latin')[0] for p in test_policies
+# }
+# Sets of test parameters
 test_params = {
-    p : generate_policy_param_samples(p, n_samples, 
-                                      sample_type='latin')[0] for p in test_policies
+    "PiecewiseLinear": [3, 0.3, 0.6, 0.78, 0.2, 1.0],
+    "RBF": [],
+    "STARFIT": np.array([
+        15.08, 5.0, 20.0,         # NORhi mu, min, max
+        0.0, -15.0,               # NORhi alpha, beta
+        9.0, 1.6, 14.2,           # NORlo mu, min, max
+        -1.0, -30.0,              # NORlo alpha, beta
+        0.2118, -0.0357, 0.1302, -0.0248,  # Release harmonic
+        -0.123, 0.183, 0.732     # Release adjustment
+    ])
 }
-
 
 line_break = "##############################################"
 

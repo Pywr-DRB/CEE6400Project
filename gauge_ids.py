@@ -1,27 +1,30 @@
 # Define gauges and mappings
-inflow_gauges = {
-    "01449360": "beltzvilleCombined",
-    "01447500": "fewalter",
-    "01428750": "prompton"
-}
+from methods.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, FIG_DIR
 
-release_gauges = {
-    "01449800": "beltzvilleCombined",
-    "01447800": "fewalter",
-    "01429000": "prompton",
-    "01470960": "blueMarsh"
+inflow_gauges = {
+    "prompton": ["01428750"],
+    "beltzvilleCombined": ["01449360"],
+    "fewalter": ["01447720", "01447500"],
 }
 
 storage_gauges = {
-    "01449790": "beltzvilleCombined",
-    "01447780": "fewalter",
-    "01428900": "prompton",
-    "01470870": "blueMarsh"
+    "beltzvilleCombined": ["01449790"],
+    "fewalter": ["01447780"],
+    "prompton": ["01428900"],
+    "blueMarsh": ["01470870"],
+    # fill in others as needed
+}
+
+release_gauges = {
+    "prompton": ["01429000"],
+    "beltzvilleCombined": ["01449800"],
+    "fewalter": ["01447800"],
+    "blueMarsh": ["01470960"],
 }
 
 storage_curves = {
-    "beltzvilleCombined": "raw/beltzvilleCombined_storage_curve.csv",
-    "fewalter": "raw/fewalter_storage_curve.csv",
-    "prompton": "raw/prompton_storage_curve.csv",
-    "blueMarsh": "raw/blueMarsh_storage_curve.csv"
+    "01449790": f"{RAW_DATA_DIR}/beltzvilleCombined_storage_curve.csv", #"beltzvilleCombined"
+    "01447780": f"{RAW_DATA_DIR}/fewalter_storage_curve.csv", #fewalter
+    "01428900": f"{RAW_DATA_DIR}/prompton_storage_curve.csv", #prompton
+    "01470870": f"{RAW_DATA_DIR}/blueMarsh_storage_curve.csv" #blueMarsh
 }

@@ -29,8 +29,7 @@ class STARFIT(AbstractPolicy):
 
         self.n_params = policy_n_params["STARFIT"]
         self.param_bounds = policy_param_bounds["STARFIT"]
-        self.policy_params = policy_params
-        self.parse_policy_params(policy_params)
+        self.parse_policy_params()
 
     def load_starfit_params(self):
         if self.reservoir_name not in self.starfit_df["reservoir"].values:
@@ -126,15 +125,20 @@ class STARFIT(AbstractPolicy):
         self.weekly_NORlo_array = weekly_NORlo
 
     
-    # def test_nor_constraint(self):
-    #     #TODO: Double check this
+    def test_nor_constraint(self):
+        #TODO: Double check this
         
-    #     self.calculate_weekly_NOR()
-    #     if np.any(self.weekly_NORhi_array < self.weekly_NORlo_array):
-    #         return False
-    #     else:
-    #         return True
-
+        self.calculate_weekly_NOR()
+        if np.any(self.weekly_NORhi_array < self.weekly_NORlo_array):
+            # Optional: Write violating parameters to a file
+            with open("violated_params.log", "a") as f:
+                f.write(f"\nViolation for {self.reservoir_name} at {pd.Timestamp.now()}:\n")
+                f.write(f"{self.policy_params}\n")
+                f.write("--------\n")
+            return False
+        else:
+            return True
+  
     def percent_storage(self, S_t):
         return S_t / self.S_cap
 
@@ -200,7 +204,7 @@ class STARFIT(AbstractPolicy):
         plt.show()
         
 
-    def plot(self, fname="STARFIT_Storage_vs_Release.png"):
+    def plot(self, fname="STARFIT_Storage_vs_Release.png", save = True):
         fig, ax = plt.subplots(figsize=(10, 6))
         ax.scatter(self.Reservoir.storage_array, self.Reservoir.release_array, s=10, alpha=0.7, label="Simulated")
         ax.set_title(f"STARFIT Policy Curve - {self.reservoir_name}")
@@ -208,7 +212,11 @@ class STARFIT(AbstractPolicy):
         ax.set_ylabel("Release (MGD)")
         ax.grid(True)
         ax.legend()
-        plt.savefig(f"./figures/{fname}", dpi=300)
+        
+        if save:
+            print(f"Saving policy plot to {fname}")
+            plt.savefig(fname, dpi=300)
+
         plt.show()
 
     def plot_policy_surface(self, save=True, fname="STARFIT_PolicySurface3D.png"):
