@@ -1,6 +1,7 @@
 import pandas as pd
 
-def load_results(file_path: str) -> pd.DataFrame:
+def load_results(file_path: str,
+                 obj_labels=None) -> pd.DataFrame:
     """
     Load results from a CSV file and return a DataFrame.
 
@@ -14,4 +15,24 @@ def load_results(file_path: str) -> pd.DataFrame:
     # Load the results from the CSV file
     results = pd.read_csv(file_path)
     
+    # Relabel objectives if obj_labels are provided
+    obj_cols = [col for col in results.columns if col.startswith("obj")]
+    var_cols = [col for col in results.columns if col.startswith("var")]
+    
+    if obj_labels is not None:
+        for col in obj_cols:
+            # Rename the column using the provided labels
+            new_col = obj_labels.get(col, col)
+            results.rename(columns={col: new_col}, inplace=True)
+
+    # Modify the sign of the objectives,
+    # only for specific objs (eg. NSE)
+    for col in obj_cols:
+        # NSE 
+        if ('nse' in col.lower()):
+            results[col] = -results[col]
+        elif ('kge' in col.lower()):
+            results[col] = -results[col]
+
+
     return results

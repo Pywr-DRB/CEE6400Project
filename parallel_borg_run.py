@@ -13,6 +13,8 @@ https://github.com/philip928lin/BorgTraining/tree/main (Private)
 import os
 import sys
 import numpy as np
+import pandas as pd
+
 from pathnavigator import PathNavigator
 
 from methods.reservoir.model import Reservoir
@@ -20,13 +22,11 @@ from methods.load.observations import get_observational_training_data
 
 from methods.metrics.objectives import ObjectiveCalculator
 
-from methods.load.observations import load_observations
-
-from methods.utils import get_overlapping_datetime_indices
 
 from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
 from methods.config import policy_n_params, policy_param_bounds
-from methods.config import SEED, METRICS, EPSILONS
+from methods.config import SEED, METRICS, EPSILONS, NFE
+from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
 
 
 root_dir = os.path.expanduser("./")
@@ -40,6 +40,8 @@ assert len(sys.argv) > 2, "POLICY_TYPE and RESERVOIR_NAME must be provided by co
 POLICY_TYPE = sys.argv[1]  
 RESERVOIR_NAME = sys.argv[2]
 
+RESERVOIR_NAME = str(RESERVOIR_NAME)
+POLICY_TYPE = str(POLICY_TYPE)
 
 ##### Settings ####################################################################
 
@@ -54,7 +56,7 @@ EPSILONS = EPSILONS + EPSILONS
 
 ### Borg Settings
 NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
-NFE = 1000       # Number of function evaluation 
+
 
 runtime_freq = 250      # output frequency
 islands = 3             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
@@ -69,36 +71,22 @@ SCALE_INFLOW = True   # if True, scale inflow based on observed release volume
 
 inflow_obs, release_obs, storage_obs = get_observational_training_data(
     reservoir_name=RESERVOIR_NAME,
-    data_dir = "./data/",
-    as_numpy=False
+    data_dir = PROCESSED_DATA_DIR,
+    as_numpy=False,
+    scaled_inflows=SCALE_INFLOW
 )
 
 # Keep datetime
 datetime = inflow_obs.index
 
-release_obs = load_observations(datatype='release', 
-                                reservoir_name=RESERVOIR_NAME, 
-                                data_dir="./data/", as_numpy=False)
+if len(datetime) < 365:
+    print(f"Warning: Only {len(datetime)} days of data available for reservoir '{RESERVOIR_NAME}'.")
 
-storage_obs = load_observations(datatype='storage',
-                                reservoir_name=RESERVOIR_NAME, 
-                                data_dir="./data/", as_numpy=False)
+# keep arrays
+inflow_obs = inflow_obs.values.flatten().astype(np.float64)
+release_obs = release_obs.values.flatten().astype(np.float64)
+storage_obs = storage_obs.values.flatten().astype(np.float64)
 
-# get overlapping datetime indices, 
-# when all data is available for this reservoir
-dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
-datetime_index = inflow_obs.loc[dt,:].index
-
-# subset data
-inflow_obs = inflow_obs.loc[dt,:].values
-release_obs = release_obs.loc[dt,:].values
-storage_obs = storage_obs.loc[dt,:].values
-
-
-# scale inflow, so that the total inflow volume is equal to the total release volume
-if SCALE_INFLOW:
-    scale_factor = np.sum(release_obs) / np.sum(inflow_obs)
-    inflow_obs = inflow_obs * scale_factor
 
 # Setup objective function
 obj_func = ObjectiveCalculator(metrics=METRICS)
@@ -146,9 +134,14 @@ def evaluate(*vars):
     reservoir.run()
     
     # Retrieve simulated release data
-    sim_release = reservoir.release_array
-    sim_storage = reservoir.storage_array 
+    sim_release = reservoir.release_array.astype(np.float64)
+    sim_storage = reservoir.storage_array.astype(np.float64)
     
+    # Check that simulation results are real numbered
+    if np.isnan(sim_release).any() or np.isnan(sim_storage).any():
+        print(f"Simulation generated NaN for {RESERVOIR_NAME}, {POLICY_TYPE} with parameters {vars}.")
+        # return [9999.99] * NOBJS, [1.0]
+
     # Calculate the objectives
     release_objs = obj_func.calculate(obs=release_obs,
                                         sim=sim_release)

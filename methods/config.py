@@ -27,7 +27,8 @@ cfs_to_mgd = 0.645932368556
 ACRE_FEET_TO_MG = 0.325851  # Acre-feet to million gallons
 
 
-### MOEA Objectives ##########
+### MOEA Settings ##########
+NFE = 20000
 
 # Metrics used for Borg
 METRICS = [

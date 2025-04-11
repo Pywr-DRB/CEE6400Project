@@ -5,7 +5,7 @@ import pandas as pd
 
 # Directories
 from methods.config import PROCESSED_DATA_DIR, RAW_DATA_DIR, FIG_DIR
-#from .gauge_ids import inflow_gauges, release_gauges, storage_gauges, storage_curves
+
 from gauge_ids import inflow_gauges, release_gauges, storage_gauges, storage_curves
 
 # Flatten gauges
@@ -13,7 +13,7 @@ def flatten_gauges(gauge_dict):
     return sorted({g for gauges in gauge_dict.values() for g in gauges})
 
 if __name__ == "__main__":
-    retriever = ObservedDataRetriever(out_dir=PROCESSED_DATA_DIR)
+    retriever = ObservedDataRetriever(out_dir=RAW_DATA_DIR)
 
     inflow_ids = flatten_gauges(inflow_gauges)
     release_ids = flatten_gauges(release_gauges)
@@ -32,9 +32,9 @@ if __name__ == "__main__":
     retriever.save_to_csv(storages, "storage_raw")
 
     # Load raw files
-    inflows_raw = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, "inflow.csv"), index_col="datetime", parse_dates=True)
-    releases_raw = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, "release.csv"), index_col="datetime", parse_dates=True)
-    storages_raw = pd.read_csv(os.path.join(PROCESSED_DATA_DIR, "storage.csv"), index_col="datetime", parse_dates=True)
+    inflows_raw = pd.read_csv(os.path.join(RAW_DATA_DIR, "inflow_raw.csv"), index_col="datetime", parse_dates=True)
+    releases_raw = pd.read_csv(os.path.join(RAW_DATA_DIR, "release_raw.csv"), index_col="datetime", parse_dates=True)
+    storages_raw = pd.read_csv(os.path.join(RAW_DATA_DIR, "storage_raw.csv"), index_col="datetime", parse_dates=True)
 
     # Postprocess: aggregate gauges into reservoir-level time series
     retriever.postprocess_and_save(inflows_raw, inflow_gauges, os.path.join(PROCESSED_DATA_DIR, "inflow.csv"))

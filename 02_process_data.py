@@ -3,7 +3,7 @@ import pandas as pd
 from methods.load.observations import load_observations, get_overlapping_datetime_indices
 from methods.load.observations import scale_inflow_observations
 
-from methods.config import DATA_DIR, reservoir_options
+from methods.config import DATA_DIR, reservoir_options, PROCESSED_DATA_DIR
 
 if __name__ == "__main__":
     
@@ -13,17 +13,17 @@ if __name__ == "__main__":
     # raw observations for all reservoirs
     inflow_obs = load_observations(datatype='inflow',
                                    reservoir_name = None,
-                                   data_dir = DATA_DIR,
+                                   data_dir = PROCESSED_DATA_DIR,
                                    as_numpy=False)
     
     release_obs = load_observations(datatype='release',
                                      reservoir_name = None,
-                                     data_dir = DATA_DIR,
+                                     data_dir = PROCESSED_DATA_DIR,
                                      as_numpy=False)
     
     storage_obs = load_observations(datatype='storage',
                                         reservoir_name = None,
-                                        data_dir = DATA_DIR,
+                                        data_dir = PROCESSED_DATA_DIR,
                                         as_numpy=False)
     
     ##############################################################
@@ -45,6 +45,7 @@ if __name__ == "__main__":
         
         # Store scaled inflow observations
         inflow_obs_scaled[reservoir] = res_inflow_scaled[reservoir]
+        inflow_obs_scaled.index.name = 'datetime'
         
     # Save scaled inflow observations
-    inflow_obs_scaled.to_csv(DATA_DIR + '/inflow_scaled.csv')
+    inflow_obs_scaled.to_csv(PROCESSED_DATA_DIR + '/inflow_scaled.csv')

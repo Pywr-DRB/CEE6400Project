@@ -3,8 +3,7 @@
 #SBATCH --output=logs/preprocess.out
 #SBATCH --error=logs/preprocess.err
 #SBATCH --ntasks=1
-#SBATCH --time=00:30:00
-#SBATCH --mem=8G
+#SBTACH --nodes=1
 
 module load python/3.11.5
 source venv/bin/activate

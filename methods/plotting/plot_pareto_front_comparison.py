@@ -21,7 +21,7 @@ def plot_pareto_front_comparison(obj_dfs,
     if len(obj_cols) == 2:
         fig, ax = plt.subplots()
         for i, df in enumerate(obj_dfs):
-            ax.scatter(df[obj_cols[0]], df[obj_cols[1]], label=labels[i], alpha=0.5)
+            ax.scatter(df[obj_cols[0]], df[obj_cols[1]], label=labels[i], alpha=0.3)
             ax.set_xlabel(obj_cols[0])
             ax.set_ylabel(obj_cols[1])
             ax.legend()

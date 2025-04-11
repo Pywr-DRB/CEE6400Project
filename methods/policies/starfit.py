@@ -29,6 +29,7 @@ class STARFIT(AbstractPolicy):
 
         self.n_params = policy_n_params["STARFIT"]
         self.param_bounds = policy_param_bounds["STARFIT"]
+        self.policy_params = policy_params
         self.parse_policy_params()
 
     def load_starfit_params(self):
@@ -47,12 +48,12 @@ class STARFIT(AbstractPolicy):
         self.R_max = (res_data["Release_max"] + 1) * self.I_bar
         self.R_min = (res_data["Release_min"] + 1) * self.I_bar
 
-    def parse_policy_params(self, policy_params):
+    def parse_policy_params(self):
         
         self.validate_policy_params()
         
-        if len(policy_params) != self.n_params:
-            raise ValueError(f"Expected 17 parameters, but received {len(policy_params)}.")
+        if len(self.policy_params) != self.n_params:
+            raise ValueError(f"Expected 17 parameters, but received {len(self.policy_params)}.")
 
         (
             self.NORhi_mu, self.NORhi_min, self.NORhi_max, 
@@ -62,7 +63,7 @@ class STARFIT(AbstractPolicy):
             self.Release_alpha1, self.Release_alpha2,
             self.Release_beta1, self.Release_beta2,
             self.Release_c, self.Release_p1, self.Release_p2
-        ) = policy_params
+        ) = self.policy_params
         
         # Setup the self.weekly_NORhi/lo_array        
         self.calculate_weekly_NOR()
