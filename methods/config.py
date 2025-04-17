@@ -28,7 +28,7 @@ ACRE_FEET_TO_MG = 0.325851  # Acre-feet to million gallons
 
 
 ### MOEA Settings ##########
-NFE = 20000
+NFE = 30000
 
 # Metrics used for Borg
 METRICS = [
@@ -71,7 +71,7 @@ n_starfit_params = 17         # Number of parameters in STARFIT policy
 #                  Release_c, Release_p1, Release_p2]
 
 
-starfit_param_bounds = [
+starfit_param_bounds_old = [
     [0.0, 100.0],         # NORhi_mu
     [0.0, 79.24],         # NORhi_min
     [0.07, 100.0],        # NORhi_max
@@ -96,7 +96,7 @@ starfit_param_bounds = [
 
 
 #this is a larger subset to see if I get better solutions
-starfit_param_bounds_full = [
+starfit_param_bounds = [
     [0.0, 100.0],         # NORhi_mu
     [0.0, 79.24],         # NORhi_min
     [0.07, 100.0],        # NORhi_max

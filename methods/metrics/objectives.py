@@ -94,7 +94,7 @@ class ObjectiveCalculator():
                 objs.append(-o)             
             elif 'rmse' in metric:
                 o = self.rmse(obs=obs, sim=sim, log=log)[0]
-                obs.append(o)
+                objs.append(o)
             elif 'kge' in metric:
                 o = self.kge(obs=obs, sim=sim, log=log)[0]
                 objs.append(-o[0])                

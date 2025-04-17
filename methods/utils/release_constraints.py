@@ -4,7 +4,7 @@ def get_release_minmax_release_dict():
     
     # load observed data
     release_obs = load_observations(datatype='release',
-                                    data_dir="./data/", as_numpy=False)
+                                    data_dir="./obs_data/processed", as_numpy=False)
     
     # 'min' release is calculated using 0.01 quantile of the observed release
     # 'max' release is calculated using 0.99 quantile of the observed release
