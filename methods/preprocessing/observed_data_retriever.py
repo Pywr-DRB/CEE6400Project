@@ -91,6 +91,13 @@ class ObservedDataRetriever:
                 print(f"No valid gauges found for {res}")
 
         result_df.index.name = "datetime"
+        
+        ### Set zeros to NaN
+        result_df = result_df.where(result_df > 0, other=float('nan'))
+        
+        ### Apply forward fill to fill nans of less than 3 days
+        result_df = result_df.ffill(limit=3)        
+        
         result_df.to_csv(outfile_path)
         print(f"Saved aggregated data to: {outfile_path}")
 

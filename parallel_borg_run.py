@@ -25,7 +25,7 @@ from methods.metrics.objectives import ObjectiveCalculator
 
 from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
 from methods.config import policy_n_params, policy_param_bounds
-from methods.config import SEED, METRICS, EPSILONS, NFE
+from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE
 from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
 
 
@@ -50,9 +50,9 @@ NVARS = policy_n_params[POLICY_TYPE]
 BOUNDS = policy_param_bounds[POLICY_TYPE]
 
 ### Objectives
-METRICS = METRICS
-NOBJS = len(METRICS) * 2   # x2 since storage and release objectives
-EPSILONS = EPSILONS + EPSILONS
+METRICS = RELEASE_METRICS + STORAGE_METRICS
+NOBJS = len(METRICS) 
+EPSILONS = EPSILONS
 
 ### Borg Settings
 NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
@@ -87,10 +87,11 @@ inflow_obs = inflow_obs.values.flatten().astype(np.float64)
 release_obs = release_obs.values.flatten().astype(np.float64)
 storage_obs = storage_obs.values.flatten().astype(np.float64)
 
+initial_storage_obs = storage_obs[0] 
 
 # Setup objective function
-obj_func = ObjectiveCalculator(metrics=METRICS)
-
+release_obj_func = ObjectiveCalculator(metrics=RELEASE_METRICS)
+storage_obj_func = ObjectiveCalculator(metrics=STORAGE_METRICS)
 
 ### Evaluation function: 
 # function(*vars) -> (objs, constrs)
@@ -115,7 +116,7 @@ def evaluate(*vars):
         policy_params = list(vars),
         release_min = reservoir_min_release[RESERVOIR_NAME],
         release_max =  reservoir_max_release[RESERVOIR_NAME],
-        initial_storage = None,
+        initial_storage = initial_storage_obs,
         name = RESERVOIR_NAME
     )
               
@@ -135,6 +136,7 @@ def evaluate(*vars):
     
     # Retrieve simulated release data
     sim_release = reservoir.release_array.astype(np.float64)
+    sim_release += reservoir.spill_array.astype(np.float64) # add spill to release
     sim_storage = reservoir.storage_array.astype(np.float64)
     
     # Check that simulation results are real numbered
@@ -143,10 +145,10 @@ def evaluate(*vars):
         # return [9999.99] * NOBJS, [1.0]
 
     # Calculate the objectives
-    release_objs = obj_func.calculate(obs=release_obs,
+    release_objs = release_obj_func.calculate(obs=release_obs,
                                         sim=sim_release)
     
-    storage_objs = obj_func.calculate(obs=storage_obs,
+    storage_objs = storage_obj_func.calculate(obs=storage_obs,
                                         sim=sim_storage)
     
     objectives = []

@@ -3,21 +3,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from methods.reservoir.model import Reservoir
-from methods.load.observations import load_observations, get_observational_training_data
-from methods.metrics.objectives import ObjectiveCalculator
-
-from methods.utils import get_overlapping_datetime_indices
+from methods.load.observations import get_observational_training_data
 
 
 from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
-from methods.config import policy_n_params, policy_param_bounds
-from methods.config import SEED, cfs_to_mgd, METRICS, OUTPUT_DIR, FIG_DIR, DATA_DIR
-
+from methods.config import OUTPUT_DIR, FIG_DIR, DATA_DIR, PROCESSED_DATA_DIR
+from methods.config import NFE
 
 # Policies to test
-POLICY_TYPE = 'STARFIT'
-RESERVOIR_NAME = 'fewalter'
-NFE = 30000
+POLICY_TYPE = 'PiecewiseLinear'
+RESERVOIR_NAME = 'beltzvilleCombined'
 
 # load parameters from Borg output
 fname = f"{OUTPUT_DIR}/MMBorg_3M_{POLICY_TYPE}_{RESERVOIR_NAME}_nfe{NFE}_seed71.csv"
@@ -47,14 +42,12 @@ line_break = "##############################################"
 
 
 if __name__ == "__main__":
-    metrics = METRICS
-    obj_func = ObjectiveCalculator(metrics=METRICS)
-
 
     inflow_obs, release_obs, storage_obs = get_observational_training_data(
         reservoir_name=RESERVOIR_NAME,
-        data_dir = DATA_DIR,
-        as_numpy=False
+        data_dir = PROCESSED_DATA_DIR,
+        as_numpy=False,
+        scaled_inflows=True
     )
 
     datetime = inflow_obs.index
@@ -62,12 +55,6 @@ if __name__ == "__main__":
     release_obs = release_obs.values
     storage_obs = storage_obs.values
     
-    
-    # scale inflow to have mass balance with release
-    scale_factor = np.sum(release_obs) / np.sum(inflow_obs)
-    inflow_scaled = inflow_obs * scale_factor
-    print(f'Reservoir: {RESERVOIR_NAME} | inflow scaled by {scale_factor}')
-
 
     for solution_type in best_solutions.keys():
 
@@ -75,7 +62,7 @@ if __name__ == "__main__":
 
         # Define the reservoir model
         reservoir = Reservoir(
-            inflow = inflow_scaled,
+            inflow = inflow_obs,
             dates= datetime,
             capacity = reservoir_capacity[RESERVOIR_NAME],
             policy_type = POLICY_TYPE,
@@ -88,28 +75,6 @@ if __name__ == "__main__":
                 
         # Run 
         reservoir.run()
-
-        # Get simulated results
-        release_sim = reservoir.release_array
-        storage_sim = reservoir.storage_array
-        
-        # Calculate the objectives
-        release_objs = obj_func.calculate(obs=release_obs, sim=release_sim)
-        storage_objs = obj_func.calculate(obs=storage_obs, sim=storage_sim)
-        
-        ### Print summary
-        print(line_break)
-        print(f"Reservoir: {RESERVOIR_NAME} | Policy: {POLICY_TYPE} | Solution: {solution_type}")
-        
-        print(f"\n### Release Objectives: ###")
-        for metric_name, objective_value in zip(metrics, release_objs):
-            print(f"{metric_name}: {objective_value}")
-        
-        print(f"\n### Storage Objectives: ###")
-        for metric_name, objective_value in zip(metrics, storage_objs):
-            print(f"{metric_name}: {objective_value}")
-        print(line_break)
-
 
 
         # # Plot policy function

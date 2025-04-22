@@ -31,12 +31,18 @@ ACRE_FEET_TO_MG = 0.325851  # Acre-feet to million gallons
 NFE = 30000
 
 # Metrics used for Borg
-METRICS = [
+RELEASE_METRICS = [
     'neg_nse',           # Negative Nash Sutcliffe Efficiency
-    'abs_pbias',         # Absolute Percent Bias
+    'Q20_abs_pbias',         # Absolute Percent Bias
+    'Q80_abs_pbias',         # Absolute Percent Bias
 ]
 
-EPSILONS = [0.001] * len(METRICS)  # Epsilon values for Borg
+STORAGE_METRICS = [
+    'neg_nse',           # Negative Nash Sutcliffe Efficiency
+]
+
+
+EPSILONS = [0.001] * 4  # Epsilon values for Borg
 
 
 ### Reservoirs ###############

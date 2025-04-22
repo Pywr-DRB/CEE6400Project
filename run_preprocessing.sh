@@ -14,4 +14,4 @@ python 01_retrieve_data.py
 echo "Processing raw data..."
 python 02_process_data.py
 
-echo "Done."
+echo "Done with preprocessing."

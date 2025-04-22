@@ -15,9 +15,9 @@ if __name__ == "__main__":
     
     obj_labels = {
         "obj1": "Release -NSE",
-        "obj2": "Release Abs % Bias",
-        "obj3": "Storage -NSE",
-        "obj4": "Storage Abs % Bias",
+        "obj2": "Release q20 Abs % Bias",
+        "obj3": "Release q80 Abs % Bias",
+        "obj4": "Storage -NSE",
     }
     
     # For each reservoir
@@ -36,18 +36,20 @@ if __name__ == "__main__":
 
             # Keep only the objectives
             obj_cols = [col for col in df.columns if col.startswith("obj")]
+            print(obj_cols)
             df = df.loc[:, obj_cols]
 
             # Rename the columns
             df.rename(columns=obj_labels, inplace=True)
-            obj_cols = list(obj_labels.values())
+            obj_cols = list(df.columns)
 
             
             obj_dfs.append(df.loc[:, obj_cols])
                 
         # Labels for the policies
         labels = POLICY_TYPES
-        plot_obj_cols = [obj_cols[0], obj_cols[2]]
+        print(obj_cols)
+        plot_obj_cols = [obj_cols[0], obj_cols[3]]
         
         
         # Plot comparison
