@@ -8,6 +8,9 @@ from methods.config import OUTPUT_DIR, FIG_DIR
 def plot_pareto_front_comparison(obj_dfs, 
                                  labels,
                                  obj_cols,
+                                 title="Pareto Front Comparison",
+                                 x_lims=None,
+                                 y_lims=None,
                                  fname=None):
     """
     """
@@ -18,8 +21,6 @@ def plot_pareto_front_comparison(obj_dfs,
             assert(col in df.columns), f"Column {col} not found in {i}th dataframe"
     
     # Create a 2 or 3D scatter of pareto fronts
-    use_x_upper = 0.0
-    use_y_upper = 0.0
     if len(obj_cols) == 2:
         fig, ax = plt.subplots()
         for i, df in enumerate(obj_dfs):
@@ -27,18 +28,12 @@ def plot_pareto_front_comparison(obj_dfs,
             ax.set_xlabel(obj_cols[0])
             ax.set_ylabel(obj_cols[1])
         
-            # get 90% confidence interval
-            x_upper = np.percentile(df[obj_cols[0]], 90)
-            y_upper = np.percentile(df[obj_cols[1]], 90)
-            if x_upper > use_x_upper:
-                use_x_upper = x_upper
-            if y_upper > use_y_upper:
-                use_y_upper = y_upper
-        
-        ax.set_xlim(-1.0, use_x_upper)
-        ax.set_ylim(-1.0, use_y_upper)
+        if x_lims is not None:
+            ax.set_xlim(x_lims[0], x_lims[1])
+        if y_lims is not None:
+            ax.set_ylim(y_lims[0], y_lims[1])       
         ax.legend()
-        ax.set_title("Pareto Front Comparison")
+        ax.set_title(title)
         ax.grid()
     
     elif len(obj_cols) == 3:

@@ -37,6 +37,7 @@ submit_job() {
 
 # "RBF" "PiecewiseLinear" "STARFIT"
 POLICY_TYPES=("RBF" "PiecewiseLinear" "STARFIT")
+# "fewalter" "prompton" "beltzvilleCombined"
 RESERVOIR_NAMES=("fewalter" "prompton" "beltzvilleCombined")
 
 # Loop through all combinations of reservoir names and policy types
