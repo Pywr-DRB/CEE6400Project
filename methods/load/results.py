@@ -25,6 +25,10 @@ def load_results(file_path: str,
             new_col = obj_labels.get(col, col)
             results.rename(columns={col: new_col}, inplace=True)
 
+        # Change obj_cols to use the new labels
+        obj_cols = [obj_labels.get(col, col) for col in obj_cols]
+        
+
     # Modify the sign of the objectives,
     # only for specific objs (eg. NSE)
     for col in obj_cols:
@@ -35,4 +39,8 @@ def load_results(file_path: str,
             results[col] = -results[col]
 
 
-    return results
+    # separate objectives and variables
+    results_obj = results.loc[:, obj_cols]
+    results_var = results.loc[:, var_cols]
+
+    return results_obj, results_var
