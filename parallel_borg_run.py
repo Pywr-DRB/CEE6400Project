@@ -25,14 +25,16 @@ from methods.metrics.objectives import ObjectiveCalculator
 
 from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
 from methods.config import policy_n_params, policy_param_bounds
-from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE
+from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE, ISLANDS
 from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
 
 
 root_dir = os.path.expanduser("./")
-pn = PathNavigator(root_dir)
+pn = PathNavigator(root_dir, max_depth=2)
 pn.chdir()
 
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
 
 ### Get POLICY_TYPE and RESERVOIR_NAME from sys.argv
 assert len(sys.argv) > 2, "POLICY_TYPE and RESERVOIR_NAME must be provided by command line."
@@ -51,15 +53,17 @@ BOUNDS = policy_param_bounds[POLICY_TYPE]
 
 ### Objectives
 METRICS = RELEASE_METRICS + STORAGE_METRICS
-NOBJS = len(METRICS) 
-EPSILONS = EPSILONS
+METRICS = METRICS
+NOBJS = len(METRICS) * 2   # x2 since storage and release objectives
+EPSILONS = EPSILONS + EPSILONS
 
 ### Borg Settings
 NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
 
 
 runtime_freq = 250      # output frequency
-islands = 3             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
+islands = ISLANDS             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
+
 borg_seed = SEED
 
 
@@ -90,8 +94,8 @@ storage_obs = storage_obs.values.flatten().astype(np.float64)
 initial_storage_obs = storage_obs[0] 
 
 # Setup objective function
-release_obj_func = ObjectiveCalculator(metrics=RELEASE_METRICS)
-storage_obj_func = ObjectiveCalculator(metrics=STORAGE_METRICS)
+obj_func = ObjectiveCalculator(metrics=METRICS)
+
 
 ### Evaluation function: 
 # function(*vars) -> (objs, constrs)
@@ -145,10 +149,10 @@ def evaluate(*vars):
         # return [9999.99] * NOBJS, [1.0]
 
     # Calculate the objectives
-    release_objs = release_obj_func.calculate(obs=release_obs,
+    release_objs = obj_func.calculate(obs=release_obs,
                                         sim=sim_release)
     
-    storage_objs = storage_obj_func.calculate(obs=storage_obs,
+    storage_objs = obj_func.calculate(obs=storage_obs,
                                         sim=sim_storage)
     
     objectives = []

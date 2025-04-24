@@ -29,8 +29,9 @@ ACRE_FEET_TO_MG = 0.325851  # Acre-feet to million gallons
 
 ### MOEA Settings ##########
 NFE = 30000
+ISLANDS = 2
 
-# Metrics used for Borg
+
 RELEASE_METRICS = [
     'neg_nse',           # Negative Nash Sutcliffe Efficiency
     'Q20_abs_pbias',         # Absolute Percent Bias
@@ -41,8 +42,9 @@ STORAGE_METRICS = [
     'neg_nse',           # Negative Nash Sutcliffe Efficiency
 ]
 
+METRICS = RELEASE_METRICS + STORAGE_METRICS
 
-EPSILONS = [0.001] * 4  # Epsilon values for Borg
+EPSILONS = [0.01] * len(METRICS)  # Epsilon values for Borg
 
 
 ### Reservoirs ###############
@@ -100,17 +102,16 @@ starfit_param_bounds_old = [
     [0.0, 0.957],         # Release_p2
 ]
 
-
 #this is a larger subset to see if I get better solutions
 starfit_param_bounds = [
     [0.0, 100.0],         # NORhi_mu
-    [0.0, 79.24],         # NORhi_min
-    [0.07, 100.0],        # NORhi_max
+    [0, 79.24],         # NORhi_min
+    [0.07, 100],        # NORhi_max
     [-10.95, 79.63],      # NORhi_alpha
     [-44.29, 5.21],       # NORhi_beta
 
-    [0.0, 88.77],         # NORlo_mu
-    [0.0, 82.17],         # NORlo_min
+    [0.0, 100],         # NORlo_mu
+    [0.0, 100],         # NORlo_min
     [1.76, 100.0],        # NORlo_max
     [-14.41, 11.16],      # NORlo_alpha
     [-45.21, 5.72],       # NORlo_beta

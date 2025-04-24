@@ -2,7 +2,7 @@
 #SBATCH --job-name=ResBorg
 #SBATCH --output=./logs/ResBorg.out
 #SBATCH --error=./logs/ResBorg.err
-#SBATCH --nodes=3
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=40
 #SBATCH --exclusive
 
@@ -47,3 +47,5 @@ for POLICY_TYPE in "${POLICY_TYPES[@]}"; do
         submit_job "$POLICY_TYPE" "$RESERVOIR_NAME"
     done
 done
+
+echo "All jobs completed."

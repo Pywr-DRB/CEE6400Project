@@ -144,7 +144,41 @@ class ObjectiveCalculator():
         else:
             return he.evaluator(he.pbias, sim, obs)
     
-    
+    def get_metric_labels(self, prefix=None):
+        """
+        Get the metric labels for the selected metrics.
+        """
+        metric_labels = []
+        
+        for m in self.metrics:
+            base = m.replace("neg_", "").replace("abs_", "").replace("log_", "")
+            label = ""
+
+            if 'nse' in m:
+                label = "NSE (−)"
+            elif 'rmse' in m:
+                label = "RMSE"
+            elif 'kge' in m:
+                label = "KGE (−)"
+            elif 'pbias' in m:
+                label = "Bias Abs. %"
+            else:
+                label = base.upper()
+
+            # Add quantile prefix if needed
+            if "Q20" in m:
+                label = "Q20 " + label
+            elif "Q80" in m:
+                label = "Q80 " + label
+            elif "log" in m:
+                label = "Log " + label
+
+            if prefix:
+                label = f"{prefix} {label}"
+
+            metric_labels.append(label)
+
+        return metric_labels
     
     
     

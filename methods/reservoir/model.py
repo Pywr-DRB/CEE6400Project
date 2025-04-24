@@ -241,6 +241,8 @@ class Reservoir():
         ax[0].plot(storage_sim, label='Simulated', color='orange', alpha=0.5)
         ax[0].set_ylabel('Storage (MGD)')
         ax[0].set_xlim(0, self.T)
+        ax[0].set_title(f"Reservoir Dynamics – {self.name.upper()}")
+
         
         # smooth releases
         if release_smooth_window is not None:
