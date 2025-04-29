@@ -15,14 +15,5 @@ source venv/bin/activate
 ### Make figures ###
 echo "Starting figure generation..."
 python 04_make_figures.py
-# python make_compare.py
-# python make_parallel.py
-# python parallel_compare.py
-
-# echo "Making parallel axis plots..."
-# python make_parallel.py
-
-# ### Run pareto solutions
-# echo "Plotting teacups..."
-# python plot_tea_cup.py
+# python 0x_plot_training_data.py
 

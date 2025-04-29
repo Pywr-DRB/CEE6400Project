@@ -36,9 +36,10 @@ def plot_pareto_front_comparison(obj_dfs,
         ax.set_xlim(x_lims[0], x_lims[1])
     if y_lims is not None:
         ax.set_ylim(y_lims[0], y_lims[1])       
-    ax.legend(bbox_to_anchor=(0.5, -0.15), loc='upper center', fontsize=10)
+    ax.legend(bbox_to_anchor=(0.5, -0.15), loc='upper center', fontsize=10, ncol=4)
     ax.set_title(title)
     ax.grid(zorder=0)
+    plt.tight_layout()
     
     if fname is not None:
         plt.savefig(fname, dpi=200)
