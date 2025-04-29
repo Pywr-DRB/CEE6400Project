@@ -53,9 +53,8 @@ BOUNDS = policy_param_bounds[POLICY_TYPE]
 
 ### Objectives
 METRICS = RELEASE_METRICS + STORAGE_METRICS
-METRICS = METRICS
-NOBJS = len(METRICS) * 2   # x2 since storage and release objectives
-EPSILONS = EPSILONS + EPSILONS
+NOBJS = len(METRICS)   # x2 since storage and release objectives
+EPSILONS = EPSILONS 
 
 ### Borg Settings
 NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
@@ -94,8 +93,8 @@ storage_obs = storage_obs.values.flatten().astype(np.float64)
 initial_storage_obs = storage_obs[0] 
 
 # Setup objective function
-obj_func = ObjectiveCalculator(metrics=METRICS)
-
+release_obj_func = ObjectiveCalculator(metrics=RELEASE_METRICS)
+storage_obj_func = ObjectiveCalculator(metrics=STORAGE_METRICS)
 
 ### Evaluation function: 
 # function(*vars) -> (objs, constrs)
@@ -149,11 +148,9 @@ def evaluate(*vars):
         # return [9999.99] * NOBJS, [1.0]
 
     # Calculate the objectives
-    release_objs = obj_func.calculate(obs=release_obs,
-                                        sim=sim_release)
-    
-    storage_objs = obj_func.calculate(obs=storage_obs,
-                                        sim=sim_storage)
+    release_objs = release_obj_func.calculate(obs=release_obs, sim=sim_release)
+    storage_objs = storage_obj_func.calculate(obs=storage_obs, sim=sim_storage)
+
     
     objectives = []
     for obj in release_objs:

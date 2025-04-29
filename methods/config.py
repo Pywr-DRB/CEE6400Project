@@ -44,7 +44,7 @@ STORAGE_METRICS = [
 
 METRICS = RELEASE_METRICS + STORAGE_METRICS
 
-EPSILONS = [0.01] * len(METRICS)  # Epsilon values for Borg
+EPSILONS = [0.01] * len(METRICS) # Epsilon values for Borg
 
 
 ### Reservoirs ###############
