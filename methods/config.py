@@ -29,7 +29,7 @@ ACRE_FEET_TO_MG = 0.325851  # Acre-feet to million gallons
 
 ### MOEA Settings ##########
 NFE = 30000
-ISLANDS = 2
+ISLANDS = 4
 
 
 RELEASE_METRICS = [
@@ -45,6 +45,24 @@ STORAGE_METRICS = [
 METRICS = RELEASE_METRICS + STORAGE_METRICS
 
 EPSILONS = [0.01] * len(METRICS) # Epsilon values for Borg
+
+OBJ_LABELS = {
+        "obj1": "Release NSE",
+        "obj2": "Release q20 Abs % Bias",
+        "obj3": "Release q80 Abs % Bias",
+        "obj4": "Storage NSE",
+}
+
+
+# Used to filter pareto front
+# obj : (min, max)
+OBJ_FILTER_BOUNDS = {
+    "Release NSE": (-3, 1.0),
+    "Release q20 Abs % Bias": (0, 70.0),
+    "Release q80 Abs % Bias": (0, 70.0),
+    "Storage NSE": (-5, 1.0),
+}
+
 
 
 ### Reservoirs ###############

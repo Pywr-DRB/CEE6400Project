@@ -8,11 +8,21 @@
 module load python/3.11.5
 source venv/bin/activate
 
-### Run pareto solutions
-echo "Running pareto solution policy simulations..."
-python plot_pareto_solution.py
+# ### Run pareto solutions
+# echo "Running pareto solution policy simulations..."
+# python plot_pareto_solution.py
 
-### Make figures
+### Make figures ###
 echo "Starting figure generation..."
-python 0x_make_figures.py
+python 04_make_figures.py
+# python make_compare.py
+# python make_parallel.py
+# python parallel_compare.py
+
+# echo "Making parallel axis plots..."
+# python make_parallel.py
+
+# ### Run pareto solutions
+# echo "Plotting teacups..."
+# python plot_tea_cup.py
 

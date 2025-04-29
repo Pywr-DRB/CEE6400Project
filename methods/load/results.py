@@ -1,7 +1,42 @@
 import pandas as pd
+from methods.config import OBJ_FILTER_BOUNDS
+
+
+
+def filter_solutions(df: pd.DataFrame,
+                     obj_bounds = OBJ_FILTER_BOUNDS) -> pd.DataFrame:
+    
+    """
+    Filter solutions based on objective bounds.
+    Args:
+        df (pd.DataFrame): DataFrame containing the solutions.
+        obj_bounds (dict): Dictionary with objective bounds.
+            Keys are objective names and values are tuples of (min, max).
+    Returns:
+        pd.DataFrame: Filtered DataFrame.    
+    """
+    # check that keys of obj_bounds are in the DataFrame
+    for obj in obj_bounds.keys():
+        if obj not in df.columns:
+            raise ValueError(f"Objective {obj} in obj_bounds not found in DataFrame columns.")
+
+
+    # Filter the DataFrame based on the objective bounds
+    for obj, bounds in obj_bounds.items():
+        min_bound, max_bound = bounds
+        df = df[(df[obj] >= min_bound) & (df[obj] <= max_bound)]
+    
+    # reset index
+    df.reset_index(drop=True, inplace=True)
+    
+    return df
+
+
 
 def load_results(file_path: str,
-                 obj_labels=None) -> pd.DataFrame:
+                 obj_labels=None,
+                 filter=False,
+                 obj_bounds=OBJ_FILTER_BOUNDS) -> pd.DataFrame:
     """
     Load results from a CSV file and return a DataFrame.
 
@@ -39,8 +74,12 @@ def load_results(file_path: str,
             results[col] = -results[col]
 
 
+    # Filter the results based on the objective bounds
+    if filter and obj_bounds is not None:
+        results = filter_solutions(results, obj_bounds)
+
     # separate objectives and variables
     results_obj = results.loc[:, obj_cols]
     results_var = results.loc[:, var_cols]
-
+    
     return results_obj, results_var

@@ -62,6 +62,9 @@ def reorganize_objs(objs, columns_axes, ideal_direction, minmaxs):
                 objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i]) / \
                                         (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
 
+    # Shuffle so that solutions are mixed
+    # objs_reorg = objs_reorg.sample(frac=1).reset_index(drop=True)
+
     return objs_reorg, tops, bottoms
 
 ### customizable parallel coordinates plot
@@ -82,10 +85,8 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
         for minmax in minmaxs:
             assert minmax in ['max','min']
     assert color_by_continuous is None or color_by_categorical is None
-    if columns_axes is None:
-        columns_axes = objs.columns
-    if axis_labels is None:
-        axis_labels = column_axes
+    columns_axes = columns_axes if (columns_axes is not None) else objs.columns
+    axis_labels = axis_labels if (axis_labels is not None) else columns_axes
     
     ### create figure
     fig,ax = plt.subplots(1,1,figsize=figsize, gridspec_kw={'hspace':0.1, 'wspace':0.1})
@@ -166,6 +167,18 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
             
         ### loop over objective/column pairs & plot lines between parallel axes
         for j in range(objs_reorg.shape[1]-1):
+            
+            # If using categorical highlight, set alpha to 1.0 for any solutions where
+            # highlight != 'Other'
+            if color_by_categorical=="highlight" and objs[color_by_categorical].iloc[i] != 'Other':
+                alpha = alpha_base
+                lw = 2.5
+                zorder = 10
+            elif color_by_categorical=="highlight" and objs[color_by_categorical].iloc[i] == 'Other':
+                alpha = alpha_brush
+                lw = 1.0
+                zorder = 2
+            
             y = [objs_reorg.iloc[i, j], objs_reorg.iloc[i, j+1]]
             x = [j, j+1]
             ax.plot(x, y, c=color, alpha=alpha, zorder=zorder, lw=lw)
@@ -173,14 +186,11 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
             
     ### add top/bottom ranges
     for j in range(len(columns_axes)):
-        ax.annotate(str(round(tops[j])), [j, 1.02], ha='center', va='bottom', 
+        ax.annotate(str(round(tops[j], 1)), [j, 1.02], ha='center', va='bottom', 
                     zorder=5, fontsize=fontsize)
-        if j == len(columns_axes)-1:
-            ax.annotate(str(round(bottoms[j])) + '+', [j, -0.02], ha='center', va='top', 
-                        zorder=5, fontsize=fontsize)    
-        else:
-            ax.annotate(str(round(bottoms[j])), [j, -0.02], ha='center', va='top', 
-                        zorder=5, fontsize=fontsize)    
+ 
+        ax.annotate(str(round(bottoms[j], 1)), [j, -0.02], ha='center', va='top', 
+                    zorder=5, fontsize=fontsize)    
 
         ax.plot([j,j], [0,1], c='k', zorder=1)
     
@@ -198,7 +208,7 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
     ax.annotate('Direction of preference', xy=(-0.3,0.5), ha='center', va='center',
                 rotation=90, fontsize=fontsize)
 
-    ax.set_xlim(-0.4, 4.2)
+    ax.set_xlim(-0.4, 3.2)
     ax.set_ylim(-0.4,1.1)
     
     for i,l in enumerate(axis_labels):
@@ -211,8 +221,11 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
         mappable = cm.ScalarMappable(cmap=color_palette_continuous)
         mappable.set_clim(vmin=objs[columns_axes[color_by_continuous]].min(), 
                           vmax=objs[columns_axes[color_by_continuous]].max())
-        cb = plt.colorbar(mappable, ax=ax, orientation='horizontal', shrink=0.4, 
-                          label=axis_labels[color_by_continuous], pad=0.03, 
+        cb = plt.colorbar(mappable, ax=ax, 
+                          orientation='horizontal', 
+                          location = 'bottom', 
+                          shrink=0.4, 
+                          label=axis_labels[color_by_continuous], pad=0.00, 
                           alpha=alpha_base)
         if colorbar_ticks_continuous is not None:
             _ = cb.ax.set_xticks(colorbar_ticks_continuous, colorbar_ticks_continuous, 
@@ -222,11 +235,19 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
     elif color_by_categorical is not None:
         leg = []
         for label,color in color_dict_categorical.items():
+            if label == 'Other':
+                alpha = alpha_brush
+                lw = 1.0
+            else:
+                alpha = alpha_base
+                lw = 2.5
+            
             leg.append(Line2D([0], [0], color=color, lw=3, 
-                              alpha=alpha_base, label=label))
+                              alpha=alpha, label=label))
         _ = ax.legend(handles=leg, loc='lower center', 
-                      ncol=max(3, len(color_dict_categorical)),
-                      bbox_to_anchor=[0.5,-0.07], frameon=False, fontsize=fontsize)
+                      ncol=min(3, len(color_dict_categorical)),
+                      bbox_to_anchor=[0.5,0.01], frameon=False, 
+                      fontsize=fontsize)
         
     
      ### save figure
