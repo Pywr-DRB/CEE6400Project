@@ -44,8 +44,8 @@ class STARFIT(AbstractPolicy):
         if os.path.exists(self.log_path):
             os.remove(self.log_path)
 
-        print(f"[DEBUG] R_max: {self.R_max}, I_bar: {self.I_bar}, R_min: {self.R_min}")
-        print(f"[DEBUG] Reservoir.capacity: {self.Reservoir.capacity:.2f} | S_cap (from CSV): {self.S_cap:.2f}")
+        # print(f"[DEBUG] R_max: {self.R_max}, I_bar: {self.I_bar}, R_min: {self.R_min}")
+        # print(f"[DEBUG] Reservoir.capacity: {self.Reservoir.capacity:.2f} | S_cap (from CSV): {self.S_cap:.2f}")
 
     def load_starfit_params(self):
         if self.reservoir_name not in self.starfit_df["reservoir"].values:

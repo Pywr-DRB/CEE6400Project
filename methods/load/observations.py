@@ -90,6 +90,14 @@ def get_observational_training_data(reservoir_name,
     # when all data is available for this reservoir
     dt = get_overlapping_datetime_indices(inflow_obs, release_obs, storage_obs)
 
+    # keep only continuous datetime indices
+    use_start_date = dt[0]
+    for i in range(1, len(dt)):
+        if (dt[i] - dt[i-1]).days > 7:
+            use_start_date = dt[i]
+    dt = dt[dt >= use_start_date]
+    
+    
     assert len(dt) > 0, \
         f"No overlapping datetime indices found for reservoir '{reservoir_name}'. "
 
@@ -97,6 +105,11 @@ def get_observational_training_data(reservoir_name,
     inflow_obs = inflow_obs.loc[dt,:]
     release_obs = release_obs.loc[dt,:]
     storage_obs = storage_obs.loc[dt,:]
+    
+    # Use fill to fill in missing values
+    inflow_obs = inflow_obs.bfill()
+    release_obs = release_obs.bfill()
+    storage_obs = storage_obs.bfill()
     
     if as_numpy:
         # Return just arrays

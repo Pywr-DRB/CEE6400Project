@@ -76,7 +76,12 @@ def load_results(file_path: str,
 
     # Filter the results based on the objective bounds
     if filter and obj_bounds is not None:
-        results = filter_solutions(results, obj_bounds)
+        if 'prompton' not in file_path:    
+            results = filter_solutions(results, obj_bounds)
+        else:
+            # prompton has f'd up Storage NSE
+            obj_bounds['Storage NSE'] = (-10, 1.0)
+            results = filter_solutions(results, obj_bounds)
 
     # separate objectives and variables
     results_obj = results.loc[:, obj_cols]

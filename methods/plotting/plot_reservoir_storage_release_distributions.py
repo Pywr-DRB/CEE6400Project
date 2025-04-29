@@ -61,45 +61,42 @@ def plot_annual_storage_timeseries(df, label=None, color='black', ax=None):
     
     return ax
 
-# def plot_annual_inflow_release_distribution(df, 
-#                                             label=None, color='black',
-#                                             quantiles=[0.1, 0.25, 0.5, 0.75, 0.9], 
-#                                             ax=None):
-#     """
-#     Plot inflow vs release curve for a single dataset.
+def plot_weekly_series_scatter(df,
+                               cmap='viridis',
+                               ax=None,
+                               log_scale=False):
+    """
+    Makes a scatterplot of obs vs sim releases at a weekly timestep.
+    The points are colored based on the week of the year. 
     
-#     Parameters:
-#         inflow (array-like): Inflow values
-#         release (array-like): Corresponding release values
-#         label (str): Legend label
-#         color (str): Line color
-#         ax (matplotlib.axes.Axes): Axis to plot on
-#     """
-#     if ax is None:
-#         ax = plt.gca()
-    
-    
-#     # Sort df based on obs_inflow
-#     sorted_idx = np.argsort(df['obs_inflow'])
-#     df = df.iloc[sorted_idx]
-    
-#     # Infer which storage column is present
-#     inflow_col = 'obs_inflow'
-#     release_col = [col for col in df.columns if 'release' in col.lower()][0]
-    
-#     # Group by DOY, compute quantiles
-#     grouped = df.groupby('doy')[release_col].quantile(quantiles).unstack()
-    
-    
-#     # Plot quantile fills
-#     for q_lo, q_hi in zip(quantiles[:-1], quantiles[-1::-1]):
+    Parameters:
+        df (DataFrame): Must contain 'obs_release', 'sim_release', and datetime index
+        cmap (str): Colormap for coloring points
+        ax (matplotlib.axes.Axes): Matplotlib axis object
+    """
+    if ax is None:
+        ax = plt.gca()
         
-#     # Plot median
-#     release_median = ...
-#     ax.plot(...)
-#     ax.set_xscale('log')
-#     ax.set_yscale('log')
-#     return ax
+    # Convert datetime to pandas Series
+    dt = pd.to_datetime(df.index)
+    
+    # Get weekly sums of inflow
+    df_weekly = df.resample('W').sum()
+    df_weekly['week'] = dt.isocalendar().week
+    
+    ax.scatter(df_weekly['obs_release'],
+               df_weekly['sim_release'],
+               c=df_weekly['week'],
+               cmap=cmap,
+               alpha=0.5)
+    
+    if log_scale:
+        ax.set_xscale('log')
+        ax.set_yscale('log')
+    ax.set_xlabel("Observed Release (MGD)")
+    ax.set_ylabel("Simulated Release (MGD)")
+    
+    return ax
 
 def plot_annual_inflow_release_distribution(df, 
                                             label=None, 
@@ -202,6 +199,7 @@ def plot_storage_release_distributions(obs_storage, obs_release,
                                        datetime,
                                        storage_distribution=True,
                                        inflow_vs_release=True,
+                                       inflow_scatter=False,
                                        fname=None):
 
     """
@@ -226,6 +224,8 @@ def plot_storage_release_distributions(obs_storage, obs_release,
         'sim_release': sim_release,
         'obs_inflow': obs_inflow
     })
+
+    df.index = df['datetime']
 
     # Create figure with 2 vertical subplots
     fig, (ax1, ax2) = plt.subplots(2, 1, 
@@ -260,6 +260,10 @@ def plot_storage_release_distributions(obs_storage, obs_release,
         ax2.set_ylabel("Release (MGD)")
         ax2.set_xlabel("Inflow (MGD)")
         
+    elif inflow_scatter:
+        ax2 = plot_weekly_series_scatter(df[['obs_release', 'sim_release']].copy(),
+                                          cmap='viridis', ax=ax2, log_scale=True)
+
     else:
         ax2 = plot_fdc(obs_release, label='Observed', 
                     color='black', ax=ax2)
