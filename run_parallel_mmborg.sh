@@ -2,7 +2,7 @@
 #SBATCH --job-name=ResBorg
 #SBATCH --output=./logs/ResBorg.out
 #SBATCH --error=./logs/ResBorg.err
-#SBATCH --nodes=2
+#SBATCH --nodes=3
 #SBATCH --ntasks-per-node=40
 #SBATCH --exclusive
 
@@ -25,7 +25,7 @@ submit_job() {
     echo "Total processors: $n_processors"
 
     # Run with MPI
-    time mpirun --oversubscribe -np $n_processors python parallel_borg_run.py "$POLICY_TYPE" "$RESERVOIR_NAME"
+    time mpirun --oversubscribe -np $n_processors python 03_parallel_borg_run.py "$POLICY_TYPE" "$RESERVOIR_NAME" $seed
     echo "Finished: POLICY_TYPE=$POLICY_TYPE, RESERVOIR_NAME=$RESERVOIR_NAME"
     echo "#############################################"
     
@@ -38,13 +38,13 @@ submit_job() {
 # "RBF" "PiecewiseLinear" "STARFIT"
 POLICY_TYPES=("RBF" "PiecewiseLinear" "STARFIT")
 # "fewalter" "prompton" "beltzvilleCombined"
-RESERVOIR_NAMES=("fewalter" "prompton" "beltzvilleCombined")
+RESERVOIR_NAMES=("prompton")
 
 # Loop through all combinations of reservoir names and policy types
 for POLICY_TYPE in "${POLICY_TYPES[@]}"; do
     for RESERVOIR_NAME in "${RESERVOIR_NAMES[@]}"; do
         echo "Submitting job for $POLICY_TYPE - $RESERVOIR_NAME"
-        submit_job "$POLICY_TYPE" "$RESERVOIR_NAME"
+        submit_job "$POLICY_TYPE" "$RESERVOIR_NAME" 
     done
 done
 

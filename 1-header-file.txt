@@ -1,0 +1,5 @@
+# Version=5
+# Problem=PolInf
+# NumberOfVariables=15
+# NumberOfObjectives=4
+# NumberOfConstraints=0

@@ -41,6 +41,7 @@ assert len(sys.argv) > 2, "POLICY_TYPE and RESERVOIR_NAME must be provided by co
 
 POLICY_TYPE = sys.argv[1]  
 RESERVOIR_NAME = sys.argv[2]
+SEED = int(sys.argv[3])
 
 RESERVOIR_NAME = str(RESERVOIR_NAME)
 POLICY_TYPE = str(POLICY_TYPE)
@@ -89,6 +90,8 @@ if len(datetime) < 365:
 inflow_obs = inflow_obs.values.flatten().astype(np.float64)
 release_obs = release_obs.values.flatten().astype(np.float64)
 storage_obs = storage_obs.values.flatten().astype(np.float64)
+
+
 
 initial_storage_obs = storage_obs[0] 
 
