@@ -18,17 +18,17 @@ NUM_DVS["PiecewiseLinear"]=15
 NUM_OBJS=4
 
 for POLICY in "${POLICIES[@]}"; do
-    echo "🔁 Running diagnostics for policy: $POLICY"
+    echo "Running diagnostics for policy: $POLICY"
     RUNTIME_DIR="outputs/Policy_${POLICY}/runtime"
 
     for RES in "${RESERVOIRS[@]}"; do
         DIR="${RUNTIME_DIR}/${RES}"
         if [ ! -d "$DIR" ]; then
-            echo "⚠️  Skipping missing directory: $DIR"
+            echo "Skipping missing directory: $DIR"
             continue
         fi
 
-        echo "📂 Processing: $POLICY – $RES"
+        echo "Processing: $POLICY – $RES"
         cd "$DIR"
 
         # Step 1: Merge and generate raw .ref file
@@ -42,4 +42,4 @@ for POLICY in "${POLICIES[@]}"; do
     done
 done
 
-echo "✅ MOEA diagnostics complete for all policies and reservoirs."
+echo "MOEA diagnostics complete for all policies and reservoirs."
