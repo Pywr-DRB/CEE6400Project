@@ -1,3 +1,4 @@
+from platform import release
 import numpy as np
 import pandas as pd
 from math import sin, cos, pi
@@ -5,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 
 from methods.policies.abstract_policy import AbstractPolicy
-from methods.config import policy_n_params, policy_param_bounds
+from methods.config import policy_n_params, policy_param_bounds, drbc_conservation_releases
 from methods.config import DATA_DIR, FIG_DIR
 
 
@@ -147,6 +148,11 @@ class STARFIT(AbstractPolicy):
         release = max(min(release, I_t + S_t), I_t + S_t - self.Reservoir.capacity)
         release = max(0, release)
         
+        reservoir_name = self.Reservoir.name
+        if reservoir_name in drbc_conservation_releases:
+            R_min = drbc_conservation_releases[reservoir_name]
+            release = max(release, R_min)
+
         return release
         
 

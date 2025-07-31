@@ -52,6 +52,8 @@ for input_file in *.set; do
     if [ -f "$input_file" ]; then
         echo "Processing $input_file"
 
+        # Remove lines with //
+        sed -i '/^\/\//d' "$input_file"
         java -cp "$jarFile" \
             org.moeaframework.analysis.tools.ReferenceSetMerger \
             --output borg.ref \

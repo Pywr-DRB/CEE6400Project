@@ -28,7 +28,6 @@ from methods.config import policy_n_params, policy_param_bounds
 from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE, ISLANDS
 from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
 
-
 root_dir = os.path.expanduser("./")
 pn = PathNavigator(root_dir, max_depth=2)
 pn.chdir()
@@ -63,7 +62,7 @@ NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
 runtime_freq = 250      # output frequency
 islands = ISLANDS             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
 
-borg_seed = SEED
+borg_seed = int(sys.argv[3]) if len(sys.argv) > 3 else SEED
 
 
 ### Other
@@ -171,7 +170,7 @@ borg_settings = {
     "epsilons": EPSILONS,
     "bounds": BOUNDS,
     "directions": None,  # default is to minimize all objectives. keep this unchanged.
-    "seed": SEED
+    "seed": borg_seed
 }
 
 

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from methods.policies.abstract_policy import AbstractPolicy
-from methods.config import policy_n_params, policy_param_bounds
+from methods.config import policy_n_params, policy_param_bounds, drbc_conservation_releases
 from methods.config import n_rbfs, n_rbf_inputs
 
 class RBF(AbstractPolicy):
@@ -46,7 +46,7 @@ class RBF(AbstractPolicy):
         # Reservoir sim data
         self.Reservoir = Reservoir
         self.dates = Reservoir.dates
-        
+
         # Policy parameters
         self.nRBFs = n_rbfs
         self.n_params = policy_n_params["RBF"]
@@ -190,6 +190,11 @@ class RBF(AbstractPolicy):
         # Enforce constraints (defined in AbstractPolicy)
         release = self.enforce_constraints(release)
         release = min(release, S_t + I_t)
+        reservoir_name = self.Reservoir.name
+        if reservoir_name in drbc_conservation_releases:
+            R_min = drbc_conservation_releases[reservoir_name]
+            release = max(release, R_min)
+
         return release
 
     def plot(self):

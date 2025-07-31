@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from methods.policies.abstract_policy import AbstractPolicy
 from methods.config import policy_n_params, policy_param_bounds
-from methods.config import n_segments, n_piecewise_linear_inputs
+from methods.config import n_segments, n_piecewise_linear_inputs, drbc_conservation_releases
 
 
 class PiecewiseLinear(AbstractPolicy):
@@ -240,6 +240,11 @@ class PiecewiseLinear(AbstractPolicy):
         # Enforce constraints (defined in AbstractPolicy)
         release = self.enforce_constraints(release)
         release = min(release, S_t + I_t)
+
+        reservoir_name = self.Reservoir.name
+        if reservoir_name in drbc_conservation_releases:
+            R_min = drbc_conservation_releases[reservoir_name]
+            release = max(release, R_min)
         
         return release
     

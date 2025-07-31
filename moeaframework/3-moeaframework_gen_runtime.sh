@@ -50,6 +50,43 @@ fi
 # Count the number of elements in the epsilon array to set dimension
 dimension=$(echo "$epsilon" | awk -F, '{print NF}')
 
+# Determine policy type from parent directory name
+POLICY=$(basename "$(dirname "$(dirname "$(pwd)")")" | sed 's/^Policy_//')
+
+# Set number of DVs and constraints for slicing
+case "$POLICY" in
+    "STARFIT")
+        num_dvs=17
+        num_objs=4
+        num_constraints=1
+        ;;
+    "RBF")
+        num_dvs=14
+        num_objs=4
+        num_constraints=0
+        ;;
+    "PiecewiseLinear")
+        num_dvs=15
+        num_objs=4
+        num_constraints=0
+        ;;
+    *)
+        echo "[ERROR] Unknown policy type: $POLICY"
+        exit 1
+        ;;
+esac
+
+# Compute where the objective columns start and end
+start_obj_col=$((num_dvs + 1))
+end_obj_col=$((num_dvs + num_objs))
+
+# Extract only the objective columns to a temporary ref file
+awk -v start="$start_obj_col" -v end="$end_obj_col" '{
+    for (i = start; i <= end; i++) {
+        printf "%s%s", $i, (i == end ? "\n" : " ");
+    }
+}' borg.ref > ref_objectives_only.ref
+
 # Loop over all .runtime files in the current directory
 for input_file in *.runtime; do
     if [ -f "$input_file" ]; then
@@ -61,7 +98,7 @@ for input_file in *.runtime; do
             --dimension "$dimension" \
             --epsilon "$epsilon" \
             --input "$input_file" \
-            --reference borg.ref \
+            --reference ref_objectives_only.ref \
             --output "$output_file"
     fi
 done
