@@ -11,6 +11,7 @@ from methods.config import (
 )
 from methods.load.observations import get_observational_training_data
 from methods.reservoir.model import Reservoir
+from methods.config import inflow_bounds_by_reservoir
 
 # === Ensure output directory exists
 os.makedirs(FIG_DIR, exist_ok=True)
@@ -76,7 +77,9 @@ for reservoir_name in RESERVOIR_NAMES:
                     policy_params=params,
                     release_min=reservoir_min_release[reservoir_name],
                     release_max=reservoir_max_release[reservoir_name],
-                    name=reservoir_name
+                    name=reservoir_name,
+                    inflow_min=inflow_bounds_by_reservoir[reservoir_name]["I_min"],
+                    inflow_max=inflow_bounds_by_reservoir[reservoir_name]["I_max"]
                 )
                 reservoir.run()
 

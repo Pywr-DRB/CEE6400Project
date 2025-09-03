@@ -27,6 +27,7 @@ from methods.config import reservoir_min_release, reservoir_max_release, reservo
 from methods.config import policy_n_params, policy_param_bounds
 from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE, ISLANDS
 from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
+from methods.config import inflow_bounds_by_reservoir
 
 root_dir = os.path.expanduser("./")
 pn = PathNavigator(root_dir, max_depth=2)
@@ -119,7 +120,9 @@ def evaluate(*vars):
         release_min = reservoir_min_release[RESERVOIR_NAME],
         release_max =  reservoir_max_release[RESERVOIR_NAME],
         initial_storage = initial_storage_obs,
-        name = RESERVOIR_NAME
+        name = RESERVOIR_NAME,
+        inflow_min = inflow_bounds_by_reservoir[RESERVOIR_NAME]["I_min"],
+        inflow_max = inflow_bounds_by_reservoir[RESERVOIR_NAME]["I_max"]
     )
               
     if POLICY_TYPE == 'STARFIT':

@@ -1,72 +1,52 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-set -e  # Exit on any error
-
-echo "Extract set from runtime file"
-
-# Default epsilon value if no argument is given
-if [ -z "$1" ]; then
-    epsilon="0.01,0.01"
-    pause_at_end=true
+# Optional override: allow `./script.sh --cli /path/to/cli`
+CLI_ARG="${1:-}"
+if [[ "$CLI_ARG" == "--cli" ]]; then
+  CLI="${2:?usage: $0 [--cli /path/to/cli]}"
+  shift 2
 else
-    epsilon="$1"
-    pause_at_end=false
-fi
-
-# Check if Java is installed
-if ! command -v java &> /dev/null; then
-    echo "[ERROR] Java is not installed or not found in PATH."
-    echo "Please install Java Development Kit (JDK)."
+  # Auto-detect cli relative to this script
+  SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+  if   [[ -x "$SCRIPT_DIR/cli" ]]; then CLI="$SCRIPT_DIR/cli"
+  elif [[ -x "$SCRIPT_DIR/MOEAFramework-5.0/cli" ]]; then CLI="$SCRIPT_DIR/MOEAFramework-5.0/cli"
+  elif [[ -x "$SCRIPT_DIR/../MOEAFramework-5.0/cli" ]]; then CLI="$SCRIPT_DIR/../MOEAFramework-5.0/cli"
+  else
+    echo "ERROR: Could not find MOEAFramework cli. Pass --cli /path/to/cli" >&2
     exit 1
+  fi
 fi
 
-# Check for the expected JAR file
-jarFile=""
-jarURL="https://github.com/MOEAFramework/MOEAFramework/releases/download/v4.5/MOEAFramework-4.5-Demo.jar"
-jarName="MOEAFramework-4.5-Demo.jar"
+OUT_ROOT="outputs"
 
-for file in *Demo.jar; do
-    if [ -f "$file" ]; then
-        jarFile="$file"
-        break
-    fi
+echo ">> Using CLI: $CLI"
+echo ">> Converting runtime -> set for all policies/reservoirs..."
+
+shopt -s nullglob
+for policy_dir in "${OUT_ROOT}"/Policy_*; do
+  [[ -d "$policy_dir/runtime" ]] || continue
+
+  echo ">> Policy: $(basename "$policy_dir")"
+
+  # Create a sibling refsets folder mirroring runtime/<reservoir> subfolders
+  for reservoir_dir in "${policy_dir}/runtime"/*/; do
+    reservoir="$(basename "$reservoir_dir")"
+    refset_dir="${policy_dir}/refsets/${reservoir}"
+    mkdir -p "$refset_dir"
+
+    echo "   - Reservoir: ${reservoir}"
+
+    for runtime_file in "${reservoir_dir}"/*.runtime; do
+      base="$(basename "${runtime_file}" .runtime)"
+      out_file="${refset_dir}/${base}.set"
+
+      echo "     * ${base}.runtime -> ${base}.set"
+      "${CLI}" ResultFileConverter \
+        --input  "${runtime_file}" \
+        --output "${out_file}"
+    done
+  done
 done
 
-if [ -z "$jarFile" ]; then
-    echo "\n[ERROR] MOEAFramework Demo JAR file not found in the current directory."
-    echo "Downloading $jarName from: $jarURL"
-    
-    wget "$jarURL" -O "$jarName"
-    
-    if [ -f "$jarName" ]; then
-        echo "Download complete."
-        jarFile="$jarName"
-    else
-        echo "[ERROR] Failed to download the file."
-        exit 1
-    fi
-fi
-
-# Count the number of elements in the epsilon array to set dimension
-dimension=$(echo "$epsilon" | awk -F, '{print NF}')
-
-# Loop over all .runtime files in the current directory
-for input_file in *.runtime; do
-    if [ -f "$input_file" ]; then
-        output_file="${input_file%.runtime}.set"
-        echo "Processing $input_file"
-
-        java -cp "$jarFile" \
-            org.moeaframework.analysis.tools.ResultFileMerger \
-            --dimension "$dimension" \
-            --output "$output_file" \
-            --epsilon "$epsilon" \
-            "$input_file"
-    fi
-done
-
-echo "Merging complete."
-
-#if [ "$pause_at_end" = true ]; then
-#    read -p "Press Enter to exit..."
-#fi
+echo ">> Done."

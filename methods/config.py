@@ -95,6 +95,7 @@ n_starfit_params = 17         # Number of parameters in STARFIT policy
 #                  NORlo_mu, NORlo_min, NORlo_max, NORlo_alpha, NORlo_beta,
 #                  Release_alpha1, Release_alpha2, Release_beta1, Release_beta2,
 #                  Release_c, Release_p1, Release_p2]
+n_starfit_inputs = 3         # Number of input variables (inflow, storage, week_of_year)
 
 
 starfit_param_bounds_old = [
@@ -179,14 +180,13 @@ policy_param_bounds = {
 
 #### RESERVOIR CONSTRAINTS ##############
 
-# Reservoir capacities (in Million Gallons - MG)
+# Reservoir capacities (in Million Gallons - MG) from ISARF CONUS dataset
 reservoir_capacity = {
-    "prompton": 16800,              # 16,800 MG
-    "beltzvilleCombined": 22300,     # 22,300 MG (approximate to spillway crest)
-    "fewalter": 36000,               # 36,000 MG
-    "blueMarsh": 16300              # 16,300 MG
+    "prompton": 27956.02,              # 27,956.02 MG
+    "beltzvilleCombined": 13500,     # 13,500 MG (approximate to spillway crest)
+    "fewalter": 35800,               # 35,800 MG
+    "blueMarsh": 42320.35              # 42,320.35 MG
 }
-
 
 # Conservation releases at lower reservoirs
 # Specified in the DRBC Water Code Table 4
@@ -214,4 +214,10 @@ for r in reservoir_options:
     
 
 
-
+inflow_bounds_by_reservoir = {
+    # "reservoir_name": {"I_min": <float>, "I_max": <float>}
+    "blueMarsh": {"I_min": 0.0, "I_max": 692.06},
+    "beltzvilleCombined": {"I_min": 0.0, "I_max": 22300.0},
+    "prompton": {"I_min": 0.0, "I_max": 900.585},
+    "fewalter": {"I_min": 0.0, "I_max": 3652.15 }
+}

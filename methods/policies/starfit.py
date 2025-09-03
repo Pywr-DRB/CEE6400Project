@@ -1,4 +1,3 @@
-from platform import release
 import numpy as np
 import pandas as pd
 from math import sin, cos, pi
@@ -6,7 +5,7 @@ import matplotlib.pyplot as plt
 import os
 
 from methods.policies.abstract_policy import AbstractPolicy
-from methods.config import policy_n_params, policy_param_bounds, drbc_conservation_releases
+from methods.config import policy_n_params, policy_param_bounds, drbc_conservation_releases, n_starfit_inputs
 from methods.config import DATA_DIR, FIG_DIR
 
 
@@ -31,6 +30,7 @@ class STARFIT(AbstractPolicy):
 
         self.n_params = policy_n_params["STARFIT"]
         self.param_bounds = policy_param_bounds["STARFIT"]
+        self.n_inputs = n_starfit_inputs
         self.policy_params = policy_params
         self.parse_policy_params()
 
@@ -39,7 +39,9 @@ class STARFIT(AbstractPolicy):
         self.S_cap = Reservoir.capacity
         self.R_min = self.Reservoir.release_min
         self.R_max = self.Reservoir.release_max
-    
+
+        self.x_min = np.array([0.0, self.Reservoir.inflow_min, 1.0])
+        self.x_max = np.array([self.Reservoir.capacity, self.Reservoir.inflow_max, 366.0])
 
         self.log_path = f"STARFIT_release_log_{self.reservoir_name}.txt"
         if os.path.exists(self.log_path):
@@ -55,8 +57,8 @@ class STARFIT(AbstractPolicy):
         res_data = self.starfit_df[self.starfit_df["reservoir"] == self.reservoir_name].iloc[0]
         self.S_cap = res_data["Adjusted_CAP_MG"] if not pd.isna(res_data["Adjusted_CAP_MG"]) else res_data["GRanD_CAP_MG"]
         self.I_bar = res_data["Adjusted_MEANFLOW_MGD"] if not pd.isna(res_data["Adjusted_MEANFLOW_MGD"]) else res_data["GRanD_MEANFLOW_MGD"]
-        self.R_max = (res_data["Release_max"] + 1) * self.I_bar
-        self.R_min = (res_data["Release_min"] + 1) * self.I_bar
+        # self.R_max = (res_data["Release_max"] + 1) * self.I_bar
+        # self.R_min = (res_data["Release_min"] + 1) * self.I_bar
 
     def parse_policy_params(self):
         self.validate_policy_params()
@@ -136,14 +138,17 @@ class STARFIT(AbstractPolicy):
         # Get state variables
         I_t = self.Reservoir.inflow_array[timestep]
         S_t = self.Reservoir.initial_storage if timestep == 0 else self.Reservoir.storage_array[timestep - 1]
-        week_of_year = self.dates[timestep].timetuple().tm_yday / 365.0
+        day_of_year = self.dates[timestep].timetuple().tm_yday / 365.0
 
         # make sure I_t and S_t are float
         I_t = float(I_t)
         S_t = float(S_t)
-        week_of_year = float(week_of_year)
+        day_of_year = float(day_of_year)
 
-        release = self.evaluate([S_t, I_t, week_of_year])
+        # inputs  = [storage, inflow, day_of_year]
+        X = np.array([S_t, I_t, day_of_year])
+
+        release = self.evaluate(X)
         release = self.enforce_constraints(release)
         release = max(min(release, I_t + S_t), I_t + S_t - self.Reservoir.capacity)
         release = max(0, release)

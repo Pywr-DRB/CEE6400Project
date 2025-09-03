@@ -41,10 +41,12 @@ class PiecewiseLinear(AbstractPolicy):
                 - The next M-1 values define x_i (excluding x_0 = 0).
                 - The last M values define θ_i.
         """
+        
+        # Reservoir sim data
         self.Reservoir = Reservoir
         self.dates = Reservoir.dates
         
-        # num of linear segments
+        # Policy parameters
         self.n_segments = n_segments
         self.n_inputs = n_piecewise_linear_inputs
         self.param_bounds = policy_param_bounds["PiecewiseLinear"]
@@ -52,14 +54,14 @@ class PiecewiseLinear(AbstractPolicy):
         
         # X (input) max and min values
         # used to normalize the input data
-        # X = [storage, inflow, week_of_year]
+        # X = [storage, inflow, day_of_year]
         self.x_min = np.array([0.0, 
                                self.Reservoir.inflow_min,
                                1.0])
         
         self.x_max = np.array([self.Reservoir.capacity, 
                                self.Reservoir.inflow_max,
-                               53.0])
+                               366.0])
         
         self.policy_params = policy_params
         self.parse_policy_params()
@@ -77,10 +79,15 @@ class PiecewiseLinear(AbstractPolicy):
             bounds = self.param_bounds[i]
             assert (p >= bounds[0]) and (p <= bounds[1]), \
                 f"Parameter with index {i} is out of bounds {bounds}. Value: {p}."
+            
+        return
         
     def parse_policy_params(self):
-        """Parses policy parameters into segment boundaries and slopes."""
-        
+        """
+        Parses policy parameters into segment boundaries and slopes.
+        """
+
+        # Validate the policy parameters
         self.validate_policy_params()
 
         def parse_segment_params(segment_params, M = self.n_segments):
@@ -109,17 +116,17 @@ class PiecewiseLinear(AbstractPolicy):
             return x_bounds, slopes, intercepts
 
 
-        ### Params contains [storage_params, inflow_params, week_of_year_params]
+        ### Params contains [storage_params, inflow_params, day_of_year_params]
         # split params in thirds
 
         n_param_subset = len(self.policy_params) // 3
         
         s_params = self.policy_params[:n_param_subset]
         i_params = self.policy_params[n_param_subset:(2 * n_param_subset)]
-        w_params = self.policy_params[(2 * n_param_subset):]
+        d_params = self.policy_params[(2 * n_param_subset):]
 
         # Calculate and store the segment boundaries, slopes, and intercepts
-        # for storage, inflow, and week of year functions
+        # for storage, inflow, and day of year functions
         (self.storage_bounds,
         self.storage_slopes,
         self.storage_intercepts) = parse_segment_params(s_params)
@@ -128,9 +135,9 @@ class PiecewiseLinear(AbstractPolicy):
         self.inflow_slopes,
         self.inflow_intercepts) = parse_segment_params(i_params)
 
-        (self.week_bounds,
-        self.week_slopes,
-        self.week_intercepts) = parse_segment_params(w_params)
+        (self.day_bounds,
+        self.day_slopes,
+        self.day_intercepts) = parse_segment_params(d_params)
 
 
     def evaluate(self, X):
@@ -146,12 +153,12 @@ class PiecewiseLinear(AbstractPolicy):
         Returns:
             float: The computed release.
         """
-        # Separate inputs [storage, inflow, week_of_year]
-        S, I, W = X
+        # Separate inputs [storage, inflow, day_of_year]
+        S, I, D = X
         
         assert I is not None, "Inflow input required but not provided."
         assert S is not None, "Storage input required but not provided."
-        assert W is not None, "Week of year input required but not provided."
+        assert D is not None, "Day of year input required but not provided."
 
         
         def segment_eval(x, bounds, slopes, intercepts):
@@ -190,13 +197,13 @@ class PiecewiseLinear(AbstractPolicy):
         
         zI = segment_eval(I, self.inflow_bounds, self.inflow_slopes, self.inflow_intercepts)
         zI = max(0.0, min(1.0, zI))
-        
-        zW = segment_eval(W, self.week_bounds, self.week_slopes, self.week_intercepts)
-        zW = max(0.0, min(1.0, zW))
-        
+
+        zD = segment_eval(D, self.day_bounds, self.day_slopes, self.day_intercepts)
+        zD = max(0.0, min(1.0, zD))
+
         # Compute the final release value
-        z = (zS + zI + zW) / 3.0
-                    
+        z = (zS + zI + zD) / 3.0
+
         # Impose bound limits
         z = max(0.0, min(1.0, z)) 
         return z
@@ -218,16 +225,16 @@ class PiecewiseLinear(AbstractPolicy):
         # Get state variables
         I_t = self.Reservoir.inflow_array[timestep]
         S_t = self.Reservoir.initial_storage if timestep == 0 else self.Reservoir.storage_array[timestep - 1]
-        week_of_year = self.dates[timestep].isocalendar().week
+        day_of_year = self.dates[timestep].timetuple().tm_yday
 
         # make sure I_t and S_t are float
         I_t = float(I_t)
         S_t = float(S_t)
-        week_of_year = float(week_of_year)
-    
-        # inputs  = [storage, inflow, week_of_year]
-        X = np.array([S_t, I_t, week_of_year])
-        
+        day_of_year = float(day_of_year)
+
+        # inputs  = [storage, inflow, day_of_year]
+        X = np.array([S_t, I_t, day_of_year])
+
         # Normalize X
         X_norm = np.zeros(self.n_inputs)
         for i in range(self.n_inputs):
@@ -236,7 +243,7 @@ class PiecewiseLinear(AbstractPolicy):
         
         # Compute release
         release  = self.evaluate(X_norm) * self.Reservoir.release_max
-        
+
         # Enforce constraints (defined in AbstractPolicy)
         release = self.enforce_constraints(release)
         release = min(release, S_t + I_t)

@@ -55,22 +55,22 @@ class RBF(AbstractPolicy):
         
         # X (input) max and min values
         # used to normalize the input data
-        # X = [storage, inflow, week_of_year]
+        # X = [storage, inflow, day_of_year]
         self.x_min = np.array([0.0, 
                                self.Reservoir.inflow_min,
                                1.0])
         
         self.x_max = np.array([self.Reservoir.capacity, 
                                self.Reservoir.inflow_max,
-                               53.0])
-        
+                               366.0])
         
         self.policy_params = policy_params
         self.parse_policy_params()
         
-        
-
     def validate_policy_params(self):
+        """
+        Validates the policy parameters
+        """
         
         # Check if the number of parameters is correct
         assert len(self.policy_params) == self.n_params, \
@@ -85,8 +85,11 @@ class RBF(AbstractPolicy):
         return
     
     def parse_policy_params(self):
+        """
+        Parses the policy parameters into RBF centers, widths, and weights.
+        """
         
-        ### Validate the policy parameters
+        # Validate the policy parameters
         self.validate_policy_params()
  
         ### Parse and assign
@@ -168,15 +171,15 @@ class RBF(AbstractPolicy):
         # Get state variables
         I_t = self.Reservoir.inflow_array[timestep]
         S_t = self.Reservoir.initial_storage if timestep == 0 else self.Reservoir.storage_array[timestep - 1]
-        week_of_year = self.dates[timestep].isocalendar().week
+        day_of_year = self.dates[timestep].timetuple().tm_yday
 
         # make sure I_t and S_t are float
         I_t = float(I_t)
         S_t = float(S_t)
-        week_of_year = float(week_of_year)
-    
-        # inputs  = [storage, inflow, week_of_year]
-        X = np.array([S_t, I_t, week_of_year])
+        day_of_year = float(day_of_year)
+
+        # inputs  = [storage, inflow, day_of_year]
+        X = np.array([S_t, I_t, day_of_year])
         
         # Normalize X
         X_norm = np.zeros(self.n_inputs)
@@ -190,6 +193,8 @@ class RBF(AbstractPolicy):
         # Enforce constraints (defined in AbstractPolicy)
         release = self.enforce_constraints(release)
         release = min(release, S_t + I_t)
+
+        
         reservoir_name = self.Reservoir.name
         if reservoir_name in drbc_conservation_releases:
             R_min = drbc_conservation_releases[reservoir_name]

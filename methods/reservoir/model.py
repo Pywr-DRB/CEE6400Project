@@ -93,9 +93,14 @@ class Reservoir():
         self.name = name 
         self.release_max = release_max
         self.release_min = release_min if release_min else conservation_releases.get(self.name, 0) 
-  
-        self.inflow_max = np.max(inflow) if inflow_max is None else inflow_max
-        self.inflow_min = 0.0 if inflow_min is None else inflow_min
+
+        # Per-reservoir inflow bounds
+        if inflow_min is not None and inflow_max is not None:
+            self.inflow_min = float(inflow_min)
+            self.inflow_max = float(inflow_max)
+        else:
+            self.inflow_max = np.max(inflow) if inflow_max is None else inflow_max
+            self.inflow_min = 0.0 if inflow_min is None else inflow_min
   
         # reset simulation variables
         self.reset()
