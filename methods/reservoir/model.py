@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from methods.policies import PiecewiseLinear, RBF, STARFIT
+from pywrdrb.release_policies import RBF, PWL, STARFIT
 from methods.utils.conversions import cfs_to_mgd
 
 
@@ -35,7 +35,7 @@ class Reservoir():
         capacity : float
             Maximum storage capacity of the reservoir.
         policy_type : str
-            Type of policy to use for operation. Options are: "PiecewiseLinear", "RBF", "STARFIT"
+            Type of policy to use for operation. Options are: "PWL", "RBF", "STARFIT"
         policy_params : np.array
             Array of policy parameters to be optimized.
         release_min : float, optional
@@ -131,27 +131,39 @@ class Reservoir():
         Parameters
         ----------
         policy_type : str
-            Type of policy to use for operation. Options are: "PiecewiseLinear", "RBF", "STARFIT"
+            Type of policy to use for operation. Options are: "PWL", "RBF", "STARFIT"
         policy_options : dict
             Dictionary of optional kwargs to pass to the policy class.
         policy_params : np.array
             Array of policy parameters to be optimized.        
-        """    
-    
-        if policy_type == 'PiecewiseLinear':
-            self.policy = PiecewiseLinear(Reservoir=self, 
-                                          policy_params=policy_params)
+        """
+
+
+        if policy_type == 'PWL':
+            self.policy = PWL(policy_params=policy_params)
             
         elif policy_type == 'RBF':
-            self.policy = RBF(Reservoir=self,
-                              policy_params = policy_params)
-            
+            self.policy = RBF(policy_params=policy_params)
+
         elif policy_type == 'STARFIT':
-            self.policy = STARFIT(Reservoir=self,
-                                  policy_params=policy_params)
-        
+            self.policy = STARFIT(policy_params=policy_params)
+
         else:
             raise ValueError(f"Invalid policy type: {policy_type}")
+        
+        # bounds for normalization [S, I, D]
+        x_min = [0.0, self.inflow_min, 1.0]
+        x_max = [self.capacity, self.inflow_max, 366.0]
+
+        # tell the policy the operating envelope
+        self.policy.set_context(
+            release_min=self.release_min,
+            release_max=self.release_max,
+            storage_capacity=self.capacity,
+            x_min=x_min,
+            x_max=x_max,
+        )
+        
         
         self.policy.validate_policy_params()
         return 

@@ -29,6 +29,14 @@ from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE
 from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
 from methods.config import inflow_bounds_by_reservoir
 
+# Policy meta (n_params, bounds per policy)
+from pywrdrb.release_policies.config import policy_n_params, policy_param_bounds
+
+# Project-level run constants: keep these in *your* repo (not pywrdrb)
+from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE, ISLANDS
+from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
+
+
 root_dir = os.path.expanduser("./")
 pn = PathNavigator(root_dir, max_depth=2)
 pn.chdir()
