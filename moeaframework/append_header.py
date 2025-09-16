@@ -4,7 +4,7 @@ Append_header.py
 Step 9: Replace first two lines of each .set file with the policy header and append a hash.
 - Input layout:
   outputs/
-    Policy_PiecewiseLinear/
+    Policy_PWL/
       1-header-file.txt
       refsets/<reservoir>/*.set
     Policy_RBF/

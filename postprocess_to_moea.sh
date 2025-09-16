@@ -19,7 +19,7 @@ else
 fi
 
 echo "[2/4] Organizing into Policy_<POLICY>/runtime/<RESERVOIR>/"
-POLICIES=(STARFIT RBF PiecewiseLinear)
+POLICIES=(STARFIT RBF PWL)
 RESERVOIRS=(beltzvilleCombined fewalter prompton)
 OUT="$MOEA_DIR/outputs"
 

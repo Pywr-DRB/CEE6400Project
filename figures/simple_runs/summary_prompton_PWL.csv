@@ -1,0 +1,2 @@
+reservoir,policy,param1,param2,param3,param4,param5,param6,param7,param8,param9,param10,param11,param12,param13,param14,param15,release_neg_nse,release_Q20_abs_pbias,release_Q80_abs_pbias,storage_neg_nse
+prompton,PWL,0.045889,0.925474,0.638112,1.549893,0.218799,0.121404,0.627667,1.103519,1.120679,0.35687,0.030453,0.817366,1.464859,-1.569831,-0.458607,-0.7779632452785565,0.4811660479830317,4.6955198958682445,0.905582108785878

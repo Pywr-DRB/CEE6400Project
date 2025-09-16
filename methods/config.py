@@ -1,10 +1,10 @@
 """
-Contains configuration specifications for the project.
+Contains configuration required for optimization.
 """
 import os
 import numpy as np
-from methods.utils.release_constraints import get_release_minmax_release_dict
-
+from typing import Tuple
+from pywrdrb.utils.constants import cfs_to_mgd, ACRE_FEET_TO_MG
 
 ### Random ##################
 SEED = 71
@@ -23,8 +23,8 @@ FIG_DIR = os.path.join(CONFIG_DIR, "../figures")
 
 
 ### Constants ###############
-cfs_to_mgd = 0.645932368556
-ACRE_FEET_TO_MG = 0.325851  # Acre-feet to million gallons
+cfs_to_mgd = cfs_to_mgd
+ACRE_FEET_TO_MG = ACRE_FEET_TO_MG  # Acre-feet to million gallons
 
 
 ### MOEA Settings ##########
@@ -78,7 +78,7 @@ reservoir_options = [
 policy_type_options = [
     "STARFIT",
     "RBF",
-    "PiecewiseLinear",
+    "PWL",
 ]
 
 
@@ -98,30 +98,7 @@ n_starfit_params = 17         # Number of parameters in STARFIT policy
 n_starfit_inputs = 3         # Number of input variables (inflow, storage, week_of_year)
 
 
-starfit_param_bounds_old = [
-    [0.0, 100.0],         # NORhi_mu
-    [0.0, 79.24],         # NORhi_min
-    [0.07, 100.0],        # NORhi_max
-    [-2, 2],              # NORhi_alpha
-    [-4, 5.21],       # NORhi_beta
-
-    [0.0, 40],         # NORlo_mu
-    [0.0, 40],         # NORlo_min
-    [0, 40],        # NORlo_max
-    [-14.41, 11.16],      # NORlo_alpha
-    [-45.21, 5.72],       # NORlo_beta
-
-    [-4.088, 240.9161],   # Release_alpha1
-    [-0.5901, 84.7844],   # Release_alpha2
-    [-1.2104, 83.9024],   # Release_beta1
-    [-52.3545, 0.4454],   # Release_beta2
-
-    [-1.414, 63.516],     # Release_c
-    [0.0, 97.625],        # Release_p1
-    [0.0, 0.957],         # Release_p2
-]
-
-#this is a larger subset to see if I get better solutions
+#Starfit parameter bounds
 starfit_param_bounds = [
     [0.0, 100.0],         # NORhi_mu
     [0, 79.24],         # NORhi_min
@@ -168,56 +145,134 @@ for _ in range(n_pwl_inputs):
 policy_n_params = {
     "STARFIT": n_starfit_params,
     "RBF": n_rbf_params,                  
-    "PiecewiseLinear": n_pwl_params,  
+    "PWL": n_pwl_params,  
 }
 
 policy_param_bounds = {
     "STARFIT": starfit_param_bounds,
     "RBF": rbf_param_bounds,
-    "PiecewiseLinear": pwl_param_bounds,
+    "PWL": pwl_param_bounds,
 }
 
 
 #### RESERVOIR CONSTRAINTS ##############
 
-# Reservoir capacities (in Million Gallons - MG) from ISARF CONUS dataset
+# --- Single source of truth (all units = MG or MGD) ---
+
+# Storage capacities (MG)
+# NOTE: For Beltzville, OBS storage max is 17,736 MG while we currently use 13,500 MG (crest).
 reservoir_capacity = {
-    "prompton": 27956.02,              # 27,956.02 MG
-    "beltzvilleCombined": 13500,     # 13,500 MG (approximate to spillway crest)
-    "fewalter": 35800,               # 35,800 MG
-    "blueMarsh": 42320.35              # 42,320.35 MG
+    "prompton": 27956.02,
+    "beltzvilleCombined": 18000.0,   # was 13500; >= OBS max 17736.09
+    "fewalter": 35800.0,
+    "blueMarsh": 42320.35,
 }
 
-# Conservation releases at lower reservoirs
-# Specified in the DRBC Water Code Table 4
+# Inflow bounds used for normalization (MGD)
+inflow_bounds_by_reservoir = {
+    "prompton":           {"I_min": 0.0, "I_max": 2533.48},   # was 900.585
+    "beltzvilleCombined": {"I_min": 0.0, "I_max": 3002.50},   # was 22300.0 (!) / 1483.45 base
+    "fewalter":           {"I_min": 0.0, "I_max": 19099.99},  # was 3652.15 / 2168.7 base
+    # "blueMarsh": {"I_min": 0.0, "I_max": 692.06},  # keep if/when ready
+}
+
+# Conservation minimums (MGD) from DRBC Water Code
 drbc_conservation_releases = {
     "blueMarsh": 50 * cfs_to_mgd,
-    "beltzvilleCombined": 35 * cfs_to_mgd,
-    "fewalter": 50 * cfs_to_mgd,
+    "beltzvilleCombined": 35 * cfs_to_mgd,  # ~22.61 MGD
+    "fewalter": 50 * cfs_to_mgd,            # ~32.30 MGD
 }
 
-# Observed min/max releases
-obs_release_min, obs_release_max = get_release_minmax_release_dict()
+# Release maxima (MGD) updated from your OBS maxima
+release_max_by_reservoir = {
+    "prompton":           1740.00,  # was 231.61 base / 1020 CTX; OBS max=1740
+    "beltzvilleCombined": 1440.00,  # was 969.5 base / 1260 CTX; OBS max=1440
+    "fewalter":           7690.00,  # was 1292.6 base / 4900 CTX; OBS max=7690
+    # "blueMarsh": <fill when ready>
+}
+
+# promton observed minimum reported (~5.75 MGD).
+release_min_by_reservoir = {
+    "prompton": 5.75,  # from CTX print
+}
+
+# --- Build BASE_POLICY_CONTEXT directly from the dicts above ---
+
+def _rmin(name: str) -> float:
+    # Prefer DRBC conservation if present, else any explicit per-reservoir min, else 0.
+    if name in drbc_conservation_releases:
+        return float(drbc_conservation_releases[name])
+    return float(release_min_by_reservoir.get(name, 0.0))
+
+def _rmax(name: str) -> float:
+    return float(release_max_by_reservoir[name])
+
+def _icap(name: str) -> float:
+    return float(reservoir_capacity[name])
+
+def _ibounds(name: str) -> tuple[float, float]:
+    b = inflow_bounds_by_reservoir[name]
+    return (float(b["I_min"]), float(b["I_max"]))
 
 
-# Assign min/max releases for each reservoir
-reservoir_min_release = {}
-reservoir_max_release = {}
-for r in reservoir_options:
-    reservoir_max_release[r] = obs_release_max[r]
-    
-    # Set min (conservation) releases from WaterCode
-    if r in drbc_conservation_releases:
-        reservoir_min_release[r] = drbc_conservation_releases[r]
+BASE_POLICY_CONTEXT_BY_RESERVOIR = {
+    name: {
+        "release_min": _rmin(name),
+        "release_max": _rmax(name),
+        "storage_capacity": _icap(name),
+        "x_min": (0.0, _ibounds(name)[0], 1.0),
+        "x_max": (_icap(name), _ibounds(name)[1], 366.0),
+    }
+    for name in reservoir_options
+}
+
+def get_policy_context(
+    reservoir_name: str,
+    *,
+    release_min_override: float | None = None,
+    release_max_override: float | None = None,
+    capacity_override: float | None = None,
+    inflow_bounds_override: tuple[float, float] | None = None,
+) -> dict:
+    # (unchanged logic; now BASE is consistent with the dicts above)
+    from copy import deepcopy
+    try:
+        base = BASE_POLICY_CONTEXT_BY_RESERVOIR[reservoir_name]
+    except KeyError as e:
+        available = ", ".join(sorted(BASE_POLICY_CONTEXT_BY_RESERVOIR))
+        raise KeyError(f"Unknown reservoir '{reservoir_name}'. Known: {available}") from e
+
+    ctx = deepcopy(base)
+
+    R_min = float(ctx["release_min"])
+    R_max = float(ctx["release_max"])
+    S_cap = float(ctx["storage_capacity"])
+    _, I_min_base, _ = ctx["x_min"]
+    _, I_max_base, _ = ctx["x_max"]
+
+    if release_min_override is not None:
+        R_min = float(release_min_override)
+    if release_max_override is not None:
+        R_max = float(release_max_override)
+    if capacity_override is not None:
+        S_cap = float(capacity_override)
+    if inflow_bounds_override is not None:
+        I_min, I_max = map(float, inflow_bounds_override)
     else:
-        reservoir_min_release[r] = obs_release_min[r]
-    
+        I_min, I_max = float(I_min_base), float(I_max_base)
 
+    if not (I_max > I_min):
+        raise ValueError(f"{reservoir_name}: I_max ({I_max}) must be > I_min ({I_min}).")
+    if not (R_max >= R_min >= 0.0):
+        raise ValueError(f"{reservoir_name}: invalid release bounds [{R_min}, {R_max}].")
 
-inflow_bounds_by_reservoir = {
-    # "reservoir_name": {"I_min": <float>, "I_max": <float>}
-    "blueMarsh": {"I_min": 0.0, "I_max": 692.06},
-    "beltzvilleCombined": {"I_min": 0.0, "I_max": 22300.0},
-    "prompton": {"I_min": 0.0, "I_max": 900.585},
-    "fewalter": {"I_min": 0.0, "I_max": 3652.15 }
-}
+    return {
+        "release_min": R_min,
+        "release_max": R_max,
+        "storage_capacity": S_cap,
+        "x_min": (0.0, I_min, 1.0),
+        "x_max": (S_cap, I_max, 366.0),
+    }
+
+# Optional: precompute
+POLICY_CONTEXT_BY_RESERVOIR = {r: get_policy_context(r) for r in reservoir_options}

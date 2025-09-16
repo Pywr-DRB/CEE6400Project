@@ -1,5 +1,5 @@
 import pandas as pd
-from methods.config import OBJ_FILTER_BOUNDS
+from pywrdrb.release_policies.config import OBJ_FILTER_BOUNDS
 
 
 

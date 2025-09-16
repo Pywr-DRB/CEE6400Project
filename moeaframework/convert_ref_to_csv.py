@@ -22,7 +22,7 @@ variable_names = {
         "rbf2_center_storage", "rbf2_center_inflow", "rbf2_center_doy",
         "rbf2_scale_storage",  "rbf2_scale_inflow",  "rbf2_scale_doy", "rbf2_weight"
     ],
-    "PiecewiseLinear": [
+    "PWL": [
         "storage_x1", "storage_x2", "storage_theta1", "storage_theta2", "storage_theta3",
         "inflow_x1",  "inflow_x2",  "inflow_theta1",  "inflow_theta2",  "inflow_theta3",
         "season_x1",  "season_x2",  "season_theta1",  "season_theta2",  "season_theta3"
@@ -234,7 +234,7 @@ if __name__ == "__main__":
     print(f"Searching for refs under: {base_dir}")
 
     # Storage for aggregated DRB CSVs per policy
-    all_drb_data = { "STARFIT": [], "RBF": [], "PiecewiseLinear": [] }
+    all_drb_data = { "STARFIT": [], "RBF": [], "PWL": [] }
 
     found_any = False
 

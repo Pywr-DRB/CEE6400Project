@@ -40,7 +40,7 @@ submit_job() {
 
 
 # === Define parameters === #
-POLICY_TYPES=("RBF" "PiecewiseLinear" "STARFIT")
+POLICY_TYPES=("RBF" "PWL" "STARFIT")
 RESERVOIR_NAMES=("fewalter" "prompton" "beltzvilleCombined")
 
 # === Loop through all combinations === #

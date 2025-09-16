@@ -9,8 +9,8 @@
 # Load Python module
 module load python/3.11.5
 
-# Activate Python virtual environment
-source venv/bin/activate
+# Activate Python virtual environment #change based on your directory
+source /home/fs02/pmr82_0001/ms3654/envs/borg-env/bin/activate
 
 # Define function to submit a single job iteration
 submit_job() {
@@ -25,7 +25,7 @@ submit_job() {
     echo "Total processors: $n_processors"
 
     # Run with MPI
-    time mpirun --oversubscribe -np $n_processors python parallel_borg_run.py "$POLICY_TYPE" "$RESERVOIR_NAME"
+    time mpirun --oversubscribe -np $n_processors python 03_parallel_borg_run.py "$POLICY_TYPE" "$RESERVOIR_NAME"
     echo "Finished: POLICY_TYPE=$POLICY_TYPE, RESERVOIR_NAME=$RESERVOIR_NAME"
     echo "#############################################"
     
@@ -35,8 +35,8 @@ submit_job() {
 
 # Arrays of policy types and reservoir names
 
-# "RBF" "PiecewiseLinear" "STARFIT"
-POLICY_TYPES=("RBF" "PiecewiseLinear" "STARFIT")
+# "RBF" "PWL" "STARFIT"
+POLICY_TYPES=("RBF" "PWL" "STARFIT")
 # "fewalter" "prompton" "beltzvilleCombined"
 RESERVOIR_NAMES=("fewalter" "prompton" "beltzvilleCombined")
 

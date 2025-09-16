@@ -17,24 +17,16 @@ import pandas as pd
 
 from pathnavigator import PathNavigator
 
+# Optimization level setting imported from this repo
 from methods.reservoir.model import Reservoir
 from methods.load.observations import get_observational_training_data
-
 from methods.metrics.objectives import ObjectiveCalculator
+from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE, ISLANDS
+from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
 
-
-from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
+# Import settings from pywrdrb
 from methods.config import policy_n_params, policy_param_bounds
-from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE, ISLANDS
-from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
-from methods.config import inflow_bounds_by_reservoir
-
-# Policy meta (n_params, bounds per policy)
-from pywrdrb.release_policies.config import policy_n_params, policy_param_bounds
-
-# Project-level run constants: keep these in *your* repo (not pywrdrb)
-from methods.config import SEED, RELEASE_METRICS, STORAGE_METRICS, EPSILONS, NFE, ISLANDS
-from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
+from methods.config import reservoir_capacity
 
 
 root_dir = os.path.expanduser("./")
@@ -75,7 +67,7 @@ borg_seed = int(sys.argv[3]) if len(sys.argv) > 3 else SEED
 
 
 ### Other
-SCALE_INFLOW = True   # if True, scale inflow based on observed release volume
+SCALE_INFLOW = False   # if True, scale inflow based on observed release volume
 
 
 ### Load observed data #######################################
@@ -125,14 +117,24 @@ def evaluate(*vars):
         capacity = reservoir_capacity[RESERVOIR_NAME],
         policy_type = POLICY_TYPE,
         policy_params = list(vars),
-        release_min = reservoir_min_release[RESERVOIR_NAME],
-        release_max =  reservoir_max_release[RESERVOIR_NAME],
         initial_storage = initial_storage_obs,
         name = RESERVOIR_NAME,
-        inflow_min = inflow_bounds_by_reservoir[RESERVOIR_NAME]["I_min"],
-        inflow_max = inflow_bounds_by_reservoir[RESERVOIR_NAME]["I_max"]
     )
-              
+    
+     # one-time context print
+    if not hasattr(evaluate, "_printed_ctx"):
+        try:
+            ctx = reservoir.policy.get_context()
+            print(f"[CTX] {RESERVOIR_NAME}: "
+                  f"S_cap={ctx['storage_capacity']:.2f}, "
+                  f"I∈[{ctx['I_min']:.2f},{ctx['I_max']:.2f}], "
+                  f"R∈[{ctx['release_min']:.2f},{ctx['release_max']:.2f}]")
+        except Exception:
+            pass
+        evaluate._printed_ctx = True
+
+    reservoir.policy.debug = False
+
     if POLICY_TYPE == 'STARFIT':
         valid = reservoir.policy.test_nor_constraint()
         if not valid:
@@ -146,6 +148,17 @@ def evaluate(*vars):
     
     # Run the simulation
     reservoir.run()
+
+     # quick guards
+    if (reservoir.storage_array < -1e-9).any():
+        print("[WARN] Negative storage encountered.")
+    avail = np.r_[initial_storage_obs, reservoir.storage_array[:-1]] + inflow_obs
+    if (reservoir.release_array - avail > 1e-6).any():
+        print("[WARN] Release > available water at some steps.")
+
+    summary = reservoir.policy.get_violation_summary()
+    if any(summary.values()):           # only print when something actually happened
+        print("[violations]", summary)
     
     # Retrieve simulated release data
     sim_release = reservoir.release_array.astype(np.float64)

@@ -4,7 +4,7 @@
 OUTPUT_DIR="outputs"
 
 # Define known policies and reservoirs
-POLICIES=("STARFIT" "RBF" "PiecewiseLinear")
+POLICIES=("STARFIT" "RBF" "PWL")
 RESERVOIRS=("beltzvilleCombined" "fewalter" "prompton")
 
 # Create output folders

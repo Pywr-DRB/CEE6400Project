@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 from pywrdrb.release_policies import RBF, PWL, STARFIT
 from methods.utils.conversions import cfs_to_mgd
+from pywrdrb.release_policies.config import get_policy_context
 
 
 class Reservoir():
@@ -68,47 +69,34 @@ class Reservoir():
         except Exception as e:
             raise ValueError(f"Inflow must be a 1D array. Got {inflow.shape}") from e
         
-        # Input timeseries
+        if dates is None:
+            raise AssertionError("Dates must be provided to Reservoir during initialization.")
+        if name is None:
+            raise AssertionError("Reservoir 'name' is required to fetch policy context.")
+        
+        self.name = name 
         self.inflow_array = inflow
         self.T = len(inflow)
         self.start_date = pd.to_datetime(start_date) if start_date is not None else None
-        self.doy = pd.Series(pd.date_range(start=self.start_date, periods=self.T)).dt.dayofyear.values if self.start_date is not None else None
-        
-        # Dates
-        assert dates is not None, "Dates must be provided to the Reservoir during initalization."
         self.dates = pd.to_datetime(dates)
-        
-        # Reservoir characteristics
+        self.doy = self.dates.dayofyear.values
+        assert len(self.doy) == self.T, "dates length must match inflow length"
+
+        # Placeholders; will be set from context in initialize_policy()
         self.capacity = capacity
+        self.release_min = None
+        self.release_max = None
+        self.inflow_min = None
+        self.inflow_max = None
+    
         self.initial_storage = 0.8 * capacity if initial_storage is None else initial_storage
-        
-        # Conservation releases
-        conservation_releases = {
-            "blueMarsh": cfs_to_mgd(50),
-            "beltzvilleCombined": cfs_to_mgd(35),
-            "nockamixon": cfs_to_mgd(11),
-            "fewalter": cfs_to_mgd(50),
-        }
 
-        self.name = name 
-        self.release_max = release_max
-        self.release_min = release_min if release_min else conservation_releases.get(self.name, 0) 
-
-        # Per-reservoir inflow bounds
-        if inflow_min is not None and inflow_max is not None:
-            self.inflow_min = float(inflow_min)
-            self.inflow_max = float(inflow_max)
-        else:
-            self.inflow_max = np.max(inflow) if inflow_max is None else inflow_max
-            self.inflow_min = 0.0 if inflow_min is None else inflow_min
-  
         # reset simulation variables
         self.reset()
         
         # initialize policy class
         self.policy = None
-        self.initalize_policy(policy_type, 
-                               policy_params)
+        self.initalize_policy(policy_type, policy_params)
     
     def reset(self):
         """
@@ -119,9 +107,7 @@ class Reservoir():
         self.spill_array = np.zeros(self.T)
         return
     
-    def initalize_policy(self, 
-                          policy_type,
-                          policy_params):
+    def initalize_policy(self, policy_type, policy_params):
         """
         Initialize the policy class based on the policy type.
         
@@ -137,82 +123,99 @@ class Reservoir():
         policy_params : np.array
             Array of policy parameters to be optimized.        
         """
-
-
+        # 1) build policy
         if policy_type == 'PWL':
             self.policy = PWL(policy_params=policy_params)
-            
         elif policy_type == 'RBF':
             self.policy = RBF(policy_params=policy_params)
-
         elif policy_type == 'STARFIT':
-            self.policy = STARFIT(policy_params=policy_params)
-
+            self.policy = STARFIT(policy_params=policy_params, reservoir_name=self.name)
+            self.policy.load_starfit_params(reservoir_name=self.name)
+            assert self.policy.I_bar is not None, "STARFIT I_bar failed to load"
         else:
             raise ValueError(f"Invalid policy type: {policy_type}")
-        
-        # bounds for normalization [S, I, D]
-        x_min = [0.0, self.inflow_min, 1.0]
-        x_max = [self.capacity, self.inflow_max, 366.0]
 
-        # tell the policy the operating envelope
-        self.policy.set_context(
-            release_min=self.release_min,
-            release_max=self.release_max,
-            storage_capacity=self.capacity,
-            x_min=x_min,
-            x_max=x_max,
-        )
-        
-        
+        self.policy.reservoir_name = self.name
+
+        # 2) pull context from CONFIG ONLY (no overrides)
+        ctx = get_policy_context(self.name)
+
+        # 3) mirror context onto the model so sim math matches policy scaling/enforcement
+        self.capacity = float(ctx["storage_capacity"])
+        self.release_min = float(ctx["release_min"])
+        self.release_max = float(ctx["release_max"])
+        self.inflow_min = float(ctx["x_min"][1])
+        self.inflow_max = float(ctx["x_max"][1])
+
+        # Set default initial storage AFTER we know capacity from context
+        self.initial_storage = 0.8 * self.capacity if self.initial_storage is None else self.initial_storage
+
+        # 4) hand the same context to the policy
+        self.policy.set_context(**ctx)
         self.policy.validate_policy_params()
-        return 
-    
+        return
     
     def get_release(self, timestep):
         """
         Use the policy class to get the release for the given timestep,
         the policy class can access reservoir attributes to make decisions.
         """
-        return self.policy.get_release(timestep=timestep)
-    
-    
+        # Build inputs at this timestep
+        I_t = self.inflow_array[timestep]
+        prev_S = self.initial_storage if timestep == 0 else self.storage_array[timestep-1]
+        D_t = self.doy[timestep] 
+        return self.policy.get_release(inflow=I_t, storage=prev_S, day_of_year=D_t)
     
     def run(self):
-        """
-        Run the reservoir simulation.
-        """
-        
-        # reset simulation variables
+        # reset state arrays
         self.reset()
-        
-        # make sure policy is initialized
-        if self.policy is None:
-            raise ValueError("Policy not initialized.")
-        
-        # run simulation
-        for t in range(0, self.T):
-            # get target release from policy
+        # reset violation log for this run
+        if hasattr(self.policy, "reset_violation_log"):
+            self.policy.reset_violation_log()
+
+        for t in range(self.T):
+            # 1) policy target
             release_target = self.get_release(timestep=t)
-            
-            # enforce constraints on release
-            release_allowable = min(release_target, self.storage_array[t-1] + self.inflow_array[t])
-            self.release_array[t] = release_allowable
 
-            # update
+            # DEBUG: peek at normalization and z
+            if getattr(self.policy, "debug", False) and (t < 5 or t % 30 == 0):
+                prev_S_dbg = self.initial_storage if t == 0 else self.storage_array[t-1]
+                I_dbg = self.inflow_array[t]
+                D_dbg = self.doy[t]
+                Xn = self.policy._normalize(prev_S_dbg, I_dbg, D_dbg)
+                try:
+                    z = self.policy.evaluate(Xn)
+                except Exception:
+                    z = float('nan')
+                print(
+                    f"[DBG] t={t} S={prev_S_dbg:.0f} I={I_dbg:.2f} D={int(D_dbg)} | "
+                    f"S_norm={Xn[0]:.3f} I_norm={Xn[1]:.3f} D_norm={Xn[2]:.3f} -> z={z:.3f}"
+                )
+
+            # 2) clamp by availability (correct t=0 handling)
+            prev_S = self.initial_storage if t == 0 else self.storage_array[t-1]
+            I_t = self.inflow_array[t]
+            self.release_array[t] = min(release_target, prev_S + I_t)
+
+            # 3) update storage
             if t == 0:
-                self.storage_array[t] = self.initial_storage + self.inflow_array[t] - self.release_array[t]
+                self.storage_array[t] = self.initial_storage + I_t - self.release_array[t]
             else:
-                self.storage_array[t] = self.storage_array[t-1] + self.inflow_array[t] - self.release_array[t]
+                self.storage_array[t] = self.storage_array[t-1] + I_t - self.release_array[t]
 
-            # Check for spill
+            # 4) spill and cap to capacity
             if self.storage_array[t] > self.capacity:
                 self.spill_array[t] = self.storage_array[t] - self.capacity
                 self.storage_array[t] = self.capacity
             else:
                 self.spill_array[t] = 0.0
-        
+
+            # 5) hard guard
+            assert self.release_array[t] <= prev_S + I_t + 1e-9, \
+                "Release exceeds physically available water."
+
         return
+
 
     def get_results(self):
         # Make a pd.DataFrame of the results

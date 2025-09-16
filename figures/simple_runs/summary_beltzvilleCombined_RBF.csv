@@ -1,0 +1,2 @@
+reservoir,policy,param1,param2,param3,param4,param5,param6,param7,param8,param9,param10,param11,param12,param13,param14,release_neg_nse,release_Q20_abs_pbias,release_Q80_abs_pbias,storage_neg_nse
+beltzvilleCombined,RBF,0.8326,0.3053,0.8705,0.1702,0.39,0.6752,0.6042,0.7022,0.0548,0.7963,0.9912,0.1115,0.4742,0.1343,-0.3974521505016476,11.072537078715822,16.21685506442493,-0.6075847324687088

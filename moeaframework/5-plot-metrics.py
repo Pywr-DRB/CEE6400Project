@@ -14,7 +14,7 @@ metrics = [
     'Spacing',
     'EpsilonIndicator'
 ]
-policies = ['STARFIT', 'RBF', 'PiecewiseLinear']
+policies = ['STARFIT', 'RBF', 'PWL']
 reservoirs = ['beltzvilleCombined', 'fewalter', 'prompton']
 nfe = 30000
 freq = 250

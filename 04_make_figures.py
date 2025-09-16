@@ -1,12 +1,14 @@
 import pandas as pd
+import numpy as np
 import warnings
+from pathlib import Path
 warnings.filterwarnings("ignore")
 
 from methods.config import NFE, SEED, ISLANDS
 from methods.config import OBJ_LABELS, OBJ_FILTER_BOUNDS
 from methods.config import reservoir_options, policy_type_options
 from methods.config import OUTPUT_DIR, FIG_DIR, PROCESSED_DATA_DIR
-from methods.config import reservoir_min_release, reservoir_max_release, reservoir_capacity
+from methods.config import reservoir_capacity
 
 from methods.reservoir.model import Reservoir
 from methods.load.results import load_results
@@ -16,8 +18,119 @@ from methods.plotting.plot_pareto_front_comparison import plot_pareto_front_comp
 from methods.plotting.plot_parallel_axis import custom_parallel_coordinates
 from methods.plotting.plot_reservoir_storage_release_distributions import plot_storage_release_distributions
 
+# ======= PARAM NAME MAPS (match run_simple_model.py) =======
+from methods.config import n_rbfs, n_rbf_inputs, n_segments, n_pwl_inputs
+
+def get_param_names_for_policy(policy: str):
+    policy = str(policy).upper()
+    if policy == "STARFIT":
+        return [
+            "NORhi_mu", "NORhi_min", "NORhi_max", "NORhi_alpha", "NORhi_beta",
+            "NORlo_mu", "NORlo_min", "NORlo_max", "NORlo_alpha", "NORlo_beta",
+            "Release_alpha1", "Release_alpha2", "Release_beta1", "Release_beta2",
+            "Release_c", "Release_p1", "Release_p2",
+        ]
+    if policy == "RBF":
+        labels = ["storage", "inflow", "doy"][:n_rbf_inputs]
+        names = []
+        for i in range(1, n_rbfs + 1):
+            names.append(f"w{i}")
+        for i in range(1, n_rbfs + 1):
+            for v in labels:
+                names.append(f"c{i}_{v}")
+        for i in range(1, n_rbfs + 1):
+            for v in labels:
+                names.append(f"r{i}_{v}")
+        return names
+    if policy == "PWL":
+        names = []
+        block_labels = ["storage", "inflow", "day"][:n_pwl_inputs]
+        for lab in block_labels:
+            for k in range(1, n_segments):
+                names.append(f"{lab}_x{k}")
+            for k in range(1, n_segments + 1):
+                names.append(f"{lab}_theta{k}")
+        return names
+    raise ValueError(f"Unknown policy '{policy}'")
+
+def print_params_flat(policy_type: str, params_1d):
+    """Flat index → name → value (works for all policies)."""
+    names = get_param_names_for_policy(policy_type)
+    assert len(params_1d) == len(names), f"Length mismatch: got {len(params_1d)} values, expected {len(names)}"
+    print(f"\n--- Parameters ({policy_type}) ---")
+    for i, (n, v) in enumerate(zip(names, params_1d)):
+        print(f"[{i:02d}] {n:16s} = {float(v): .6f}")
+
+def print_params_pretty(policy_type: str, params_1d):
+    """
+    Nicely grouped printers for RBF and PWL; STARFIT uses flat by design.
+    """
+    policy = policy_type.upper()
+    names = get_param_names_for_policy(policy)
+    assert len(params_1d) == len(names), f"Length mismatch: got {len(params_1d)} values, expected {len(names)}"
+
+    if policy == "STARFIT":
+        print_params_flat(policy, params_1d)
+        return
+
+    if policy == "RBF":
+        print(f"\n--- Parameters (RBF) n_rbfs={n_rbfs}, n_inputs={n_rbf_inputs} ---")
+        idx = 0
+        # weights
+        print("Weights:")
+        for i in range(1, n_rbfs + 1):
+            print(f"  w{i} = {float(params_1d[idx]): .6f}")
+            idx += 1
+        # centers
+        print("Centers c[i, var]:")
+        for i in range(1, n_rbfs + 1):
+            row = []
+            for var in ["storage", "inflow", "doy"][:n_rbf_inputs]:
+                row.append(float(params_1d[idx])); idx += 1
+            print(f"  c{i} = {row}")
+        # scales
+        print("Scales r[i, var]:")
+        for i in range(1, n_rbfs + 1):
+            row = []
+            for var in ["storage", "inflow", "doy"][:n_rbf_inputs]:
+                row.append(float(params_1d[idx])); idx += 1
+            print(f"  r{i} = {row}")
+        return
+
+    if policy == "PWL":
+        print(f"\n--- Parameters (PWL) n_segments={n_segments}, n_inputs={n_pwl_inputs} ---")
+        per_block = 2 * n_segments - 1
+        blocks = ["storage", "inflow", "day"][:n_pwl_inputs]
+        for b, lab in enumerate(blocks):
+            block = params_1d[b*per_block:(b+1)*per_block]
+            xs     = block[:n_segments-1]
+            thetas = block[n_segments-1:]
+            print(f"{lab.capitalize()} block:")
+            for i, x in enumerate(xs, start=1):
+                print(f"  x{i}     = {float(x): .6f}")
+            for i, th in enumerate(thetas, start=1):
+                print(f"  theta{i} = {float(th): .6f}")
+        return
+
+    # fallback
+    print_params_flat(policy, params_1d)
+
+def make_var_df_with_names(policy_type: str, var_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return a copy of var_df with friendly column names (in correct order).
+    Assumes var_df columns are var1..varN (or equivalent positional order).
+    """
+    names = get_param_names_for_policy(policy_type)
+    assert len(var_df.columns) >= len(names), "var_df has fewer columns than expected parameters."
+    df = var_df.copy().iloc[:, :len(names)]
+    df.columns = names
+    return df
+
+
 POLICY_TYPES = policy_type_options
+print(f"Policy types: {POLICY_TYPES}")
 RESERVOIR_NAMES = reservoir_options
+print(f"Reservoirs: {RESERVOIR_NAMES}")
 
 REMAKE_PARALLEL_PLOTS = True
 REMAKE_DYNAMICS_PLOTS = True
@@ -32,16 +145,14 @@ reservoir_labels = {
 policy_labels = {
     'STARFIT': 'STARFIT',
     'RBF': 'RBF',
-    'PiecewiseLinear': 'Piecewise Linear',
+    'PWL': 'PWL',
 }
 
 policy_colors = {
         'STARFIT': 'blue',
         'RBF': 'orange',
-        'PiecewiseLinear': 'green',
+        'PWL': 'green',
 }
-
-
 
 
 if __name__ == "__main__":
@@ -59,7 +170,12 @@ if __name__ == "__main__":
     print(f"Max storage: {storage_obs.max()}")
     print(f"Min release: {release_obs.min()}")
     print(f"Max release: {release_obs.max()}")
-    
+
+    # --- make sure figure subfolders exist ---
+    Path(FIG_DIR, "fig1_pareto_front_comparison").mkdir(parents=True, exist_ok=True)
+    Path(FIG_DIR, "fig2_parallel_axes").mkdir(parents=True, exist_ok=True)
+    Path(FIG_DIR, "fig3_dynamics").mkdir(parents=True, exist_ok=True)
+
     ####################################################
     ### Load & process data ############################
     ####################################################
@@ -87,6 +203,7 @@ if __name__ == "__main__":
             obj_df, var_df = load_results(fname, obj_labels=obj_labels,
                                           filter=True, obj_bounds=OBJ_FILTER_BOUNDS)
             
+
             if len(obj_df) == 0:
                 print(f"Warning: No solutions found for {policy_type} with {reservoir_name}.")
                 continue
@@ -118,6 +235,31 @@ if __name__ == "__main__":
             scaled_min_obj_df = (min_obj_df - min_obj_df.min()) / (min_obj_df.max() - min_obj_df.min())
             idx_best_all_avg = scaled_min_obj_df.mean(axis=1).idxmin()
             
+            # ================== INSERT THIS BLOCK ==================
+            # Print parameters for each focal pick (uses the helpers you added)
+            try:
+                # Best Average All (main ask)
+                params_best_all = solution_vars[reservoir_name][policy_type].iloc[idx_best_all_avg].values
+                print_params_flat(policy_type, params_best_all)
+                print_params_pretty(policy_type, params_best_all)
+
+                # (Optional) also print others:
+                params_best_release = solution_vars[reservoir_name][policy_type].iloc[idx_best_release].values
+                params_best_storage = solution_vars[reservoir_name][policy_type].iloc[idx_best_storage].values
+                params_best_average = solution_vars[reservoir_name][policy_type].iloc[idx_best_average].values
+
+                print("\n[Params] Best Release NSE:")
+                print_params_flat(policy_type, params_best_release)
+
+                print("\n[Params] Best Storage NSE:")
+                print_params_flat(policy_type, params_best_storage)
+
+                print("\n[Params] Best Average NSE:")
+                print_params_flat(policy_type, params_best_average)
+
+            except Exception as e:
+                print(f"[WARN] Could not print named parameters for {reservoir_name}/{policy_type}: {e}")
+            # =======================================================
             highlight_label_dict = {
                 idx_best_release: "Best Release NSE",
                 idx_best_storage: "Best Storage NSE",
@@ -140,7 +282,12 @@ if __name__ == "__main__":
             solution_objs[reservoir_name][policy_type] = obj_df
             solution_vars[reservoir_name][policy_type] = var_df
             
-
+    for policy_type in solution_objs['fewalter'].keys():
+        print(f'solution_objs has policy type: {policy_type}')
+    for policy_type in solution_objs['beltzvilleCombined'].keys():
+        print(f'solution_objs has policy type: {policy_type}')
+    for policy_type in solution_objs['prompton'].keys():
+        print(f'solution_objs has policy type: {policy_type}')
     #################################################
     m="#### Figure 1 - Pareto Front Comparison #####"
     #################################################
@@ -350,6 +497,8 @@ if __name__ == "__main__":
                         print(f"Warning: No parameters found for {solution_type} for {reservoir_name} with {policy_type}.")
                         continue
                     
+                    print_params_pretty(policy_type, params)
+
                     # Define the reservoir model
                     reservoir = Reservoir(
                         inflow = inflow_obs,
@@ -357,8 +506,6 @@ if __name__ == "__main__":
                         capacity = reservoir_capacity[reservoir_name],
                         policy_type = policy_type,
                         policy_params = params,
-                        release_min = reservoir_min_release[reservoir_name],
-                        release_max =  reservoir_max_release[reservoir_name],
                         initial_storage = storage_obs[0],
                         name = reservoir_name,
                     )

@@ -5,14 +5,14 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 EPSILON="0.01,0.01,0.01,0.01"
-POLICIES=("STARFIT" "RBF" "PiecewiseLinear")
+POLICIES=("STARFIT" "RBF" "PW:")
 RESERVOIRS=("beltzvilleCombined" "fewalter" "prompton")
 
 # Define the number of DVs per policy (used by step 3)
 declare -A NUM_DVS
 NUM_DVS["STARFIT"]=17
 NUM_DVS["RBF"]=14
-NUM_DVS["PiecewiseLinear"]=15
+NUM_DVS["PWL"]=15
 
 # Fixed number of objectives
 NUM_OBJS=4
