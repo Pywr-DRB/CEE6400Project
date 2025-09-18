@@ -59,16 +59,10 @@ EPSILONS = EPSILONS
 ### Borg Settings
 NCONSTRS = 1 if POLICY_TYPE == 'STARFIT' else 0
 
-
 runtime_freq = 250      # output frequency
 islands = ISLANDS             # 1 = MW, >1 = MM  # Note the total NFE is islands * nfe
 
 borg_seed = int(sys.argv[3]) if len(sys.argv) > 3 else SEED
-
-
-### Other
-SCALE_INFLOW = False   # if True, scale inflow based on observed release volume
-
 
 ### Load observed data #######################################
 
@@ -76,7 +70,7 @@ inflow_obs, release_obs, storage_obs = get_observational_training_data(
     reservoir_name=RESERVOIR_NAME,
     data_dir = PROCESSED_DATA_DIR,
     as_numpy=False,
-    scaled_inflows=SCALE_INFLOW
+    inflow_type='inflow_pub' #specify type of inflow data here options: 'inflow', 'inflow_scaled', 'inflow_pub'
 )
 
 # Keep datetime
@@ -117,7 +111,7 @@ def evaluate(*vars):
         capacity = reservoir_capacity[RESERVOIR_NAME],
         policy_type = POLICY_TYPE,
         policy_params = list(vars),
-        initial_storage = initial_storage_obs,
+        initial_storage = None, # set initial storage to 80% of capacity
         name = RESERVOIR_NAME,
     )
     

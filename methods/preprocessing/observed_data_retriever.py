@@ -4,8 +4,8 @@ import os
 from datetime import datetime
 from dataretrieval import nwis
 import matplotlib.pyplot as plt
+from pywrdrb.utils.constants import cfs_to_mgd, ACRE_FEET_TO_MG
 
-ACRE_FEET_TO_MG = 0.325851  # Acre-feet to million gallons
 
 
 class ObservedDataRetriever:
@@ -23,6 +23,11 @@ class ObservedDataRetriever:
         os.makedirs(self.out_dir, exist_ok=True)
 
     def get(self, gauges, param_cd="00060", stat_cd=None, label_map=None):
+        """
+        Pull DV series from NWIS, rename columns, and RETURN IN CONSISTENT UNITS:
+          - param_cd '00060' (flow): converted from cfs to MGD
+          - param_cd '00062' or '62615' (elevation): feet (unchanged)
+        """
         stat_cd = stat_cd or self.default_stat_code
         all_dfs = []
 
@@ -53,11 +58,21 @@ class ObservedDataRetriever:
         if not all_dfs:
             return pd.DataFrame()
 
-        df_combined = pd.concat(all_dfs, axis=1)
-        print(f"Retrieved data for: {df_combined.columns.tolist()}")
-        return df_combined
+        df = pd.concat(all_dfs, axis=1)
+        # ---- unit conversion by parameter code ----
+        if param_cd == "00060":
+            # USGS discharge is cfs -> convert to MGD
+            df = df.astype(float) * cfs_to_mgd
+        # 00062 / 62615 are elevations (ft). No conversion here.
+        print(f"Retrieved data for: {df.columns.tolist()}")
+        print(f"Retrieved data for: {df.columns.tolist()} | param_cd={param_cd}")
+        return df
 
     def convert_elevation_to_storage(self, elevation_df, storage_curve_dict):
+        """
+        Convert elevation (ft) to storage (MG) using curves that may contain either:
+          - 'Acre-Ft' (acre-feet)
+        """
         storage_dfs = []
 
         for col in elevation_df.columns:
@@ -161,7 +176,7 @@ def plot_obs_reservoir_dynamics(I, S, R, reservoir_name,
 
     # Storage
     axs[1].plot(S.index, S[reservoir_name], label='Storage')
-    axs[1].set_ylabel('Storage (MGD)')
+    axs[1].set_ylabel('Storage (MG)')
 
     # Release
     axs[2].plot(R.index, R[reservoir_name], label='Release')

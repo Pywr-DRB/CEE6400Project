@@ -325,7 +325,6 @@ def plot_inflow_storage_release(idx, inflow, storage, release, ctx, res_name,
         plt.show()
     plt.close(fig)
 
-
 # -------------------------------
 # Main
 # -------------------------------
@@ -379,7 +378,7 @@ def main():
                 reservoir_name=r,
                 data_dir=PROCESSED_DATA_DIR,
                 as_numpy=False,
-                scaled_inflows=args.scaled_inflows,
+                inflow_type='inflow_pub' #options are 'inflow' or 'inflow_scaled' or inflow_pub
             )
 
             # Basic time info

@@ -18,19 +18,17 @@ CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(CONFIG_DIR, "../obs_data")
 RAW_DATA_DIR = os.path.join(DATA_DIR, "raw")
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, "processed")
+PUB_RECON_DIR = os.path.join(DATA_DIR, "pub_reconstruction")
 OUTPUT_DIR = os.path.join(CONFIG_DIR, "../outputs")
 FIG_DIR = os.path.join(CONFIG_DIR, "../figures")
-
 
 ### Constants ###############
 cfs_to_mgd = cfs_to_mgd
 ACRE_FEET_TO_MG = ACRE_FEET_TO_MG  # Acre-feet to million gallons
 
-
 ### MOEA Settings ##########
 NFE = 30000
 ISLANDS = 4
-
 
 RELEASE_METRICS = [
     'neg_nse',           # Negative Nash Sutcliffe Efficiency
@@ -53,7 +51,6 @@ OBJ_LABELS = {
         "obj4": "Storage NSE",
 }
 
-
 # Used to filter pareto front
 # obj : (min, max)
 OBJ_FILTER_BOUNDS = {
@@ -63,15 +60,13 @@ OBJ_FILTER_BOUNDS = {
     "Storage NSE": (-5, 1.0),
 }
 
-
-
 ### Reservoirs ###############
 reservoir_options = [
     'beltzvilleCombined',
     'fewalter',
     'prompton',
-] #blueMarsh not ready 
-
+    'blueMarsh', # keep if/when ready 
+]
 
 ### Polcy Settings ###############
 
@@ -81,13 +76,11 @@ policy_type_options = [
     "PWL",
 ]
 
-
 ## RBF
 n_rbfs = 2              # Number of radial basis functions (RBFs) used in the policy
 n_rbf_inputs = 3         # Number of input variables (inflow, storage, day_of_year)
 n_rbf_params = n_rbfs * (2 * n_rbf_inputs + 1)
 rbf_param_bounds = [[0.0, 1.0]] * n_rbf_params
-
 
 ## STARFIT
 n_starfit_params = 17         # Number of parameters in STARFIT policy
@@ -96,7 +89,6 @@ n_starfit_params = 17         # Number of parameters in STARFIT policy
 #                  Release_alpha1, Release_alpha2, Release_beta1, Release_beta2,
 #                  Release_c, Release_p1, Release_p2]
 n_starfit_inputs = 3         # Number of input variables (inflow, storage, week_of_year)
-
 
 #Starfit parameter bounds
 starfit_param_bounds = [
@@ -140,7 +132,6 @@ pwl_param_bounds = []
 for _ in range(n_pwl_inputs):
     pwl_param_bounds += single_input_pwl_param_bounds
 
-
 ## Dictionaries of configurations
 policy_n_params = {
     "STARFIT": n_starfit_params,
@@ -153,7 +144,6 @@ policy_param_bounds = {
     "RBF": rbf_param_bounds,
     "PWL": pwl_param_bounds,
 }
-
 
 #### RESERVOIR CONSTRAINTS ##############
 
@@ -170,10 +160,10 @@ reservoir_capacity = {
 
 # Inflow bounds used for normalization (MGD)
 inflow_bounds_by_reservoir = {
-    "prompton":           {"I_min": 0.0, "I_max": 2533.48},   # was 900.585
-    "beltzvilleCombined": {"I_min": 0.0, "I_max": 3002.50},   # was 22300.0 (!) / 1483.45 base
-    "fewalter":           {"I_min": 0.0, "I_max": 19099.99},  # was 3652.15 / 2168.7 base
-    # "blueMarsh": {"I_min": 0.0, "I_max": 692.06},  # keep if/when ready
+    "prompton":           {"I_min": 0.0, "I_max": 7500.00},   # I_max = 1740.00 × 1.5 = 2610.00
+    "beltzvilleCombined": {"I_min": 0.0, "I_max": 3002.50},   # I_max = 1440.00 × 1.5 = 2160.00
+    "fewalter":           {"I_min": 0.0, "I_max": 20000.00},  # I_max = 7690.00 × 1.5 = 11535.00
+    "blueMarsh": {"I_min": 0.0, "I_max": 7500.00},  # keep if/when ready
 }
 
 # Conservation minimums (MGD) from DRBC Water Code
@@ -185,10 +175,10 @@ drbc_conservation_releases = {
 
 # Release maxima (MGD) updated from your OBS maxima
 release_max_by_reservoir = {
-    "prompton":           1740.00,  # was 231.61 base / 1020 CTX; OBS max=1740
-    "beltzvilleCombined": 1440.00,  # was 969.5 base / 1260 CTX; OBS max=1440
-    "fewalter":           7690.00,  # was 1292.6 base / 4900 CTX; OBS max=7690
-    # "blueMarsh": <fill when ready>
+    "prompton":           3000.00,  # R_max = 1740.00 × 1.5 = 2610.00
+    "beltzvilleCombined": 3000.00,  # R_max = 1440.00 × 1.5 = 2160.00
+    "fewalter":           11535.00,  # R_max = 7690.00 × 1.5 = 11535.00
+    "blueMarsh":          7500.00,
 }
 
 # promton observed minimum reported (~5.75 MGD).

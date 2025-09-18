@@ -9,18 +9,30 @@ def load_observations(datatype,
                       data_dir = "../obs_data/processed",
                       as_numpy=True):
     """
-    Loads observational data (inflow, storage or release).
-    
-    Args:
-        datatype (str): The type of data to load. Must be 'inflow', 'storage' or 'release'.
-        reservoir_name (str): Name of the reservoir to load data for. If None, all data is returned.
-    
-    Returns:
-        np.array: Inflow timeseries for the given reservoir as a numpy array.
+    Load observational or publication-based data by type.
+
+    Parameters
+    ----------
+    datatype : {'inflow','inflow_scaled','inflow_pub','storage','release'}
+        Which dataset to load.
+    reservoir_name : str or None
+        If provided, returns only that column; else returns all columns.
+    data_dir : str
+        Directory containing CSV files in the processed subfolder.
+    as_numpy : bool
+        If True, return numpy arrays; else return pandas objects.
+
+    Returns
+    -------
+    np.ndarray or pd.DataFrame / pd.Series
     """
-    if datatype not in ["inflow", "inflow_scaled", "storage", "release"]:
-        raise ValueError(f"Invalid datatype '{datatype}'. Must be 'inflow', 'storage' or 'release'.")
-    
+
+    valid = {"inflow", "inflow_scaled", "inflow_pub", "storage", "release"}
+    if datatype not in valid:
+        raise ValueError(
+            f"Invalid datatype '{datatype}'. Must be one of {sorted(valid)}."
+        )
+
     filepath = f"{data_dir}/{datatype}.csv"
 
     df = pd.read_csv(filepath, index_col = 0, parse_dates=True)
@@ -50,7 +62,7 @@ def load_observations(datatype,
 def get_observational_training_data(reservoir_name, 
                            data_dir,
                            as_numpy=True,
-                           scaled_inflows=True):
+                           inflow_type='inflow',):
     """
     Loads training data (inflow, release and storage)
     for a given reservoir, for maximum overlapping timeperiod.
@@ -67,9 +79,14 @@ def get_observational_training_data(reservoir_name,
     assert os.path.exists(data_dir), \
         f"Data directory '{data_dir}' does not exist. Please check the data_dir path."
     
-    if scaled_inflows:
+    if inflow_type == 'inflow_scaled':
         # Load scaled inflow observations
         inflow_obs = load_observations(datatype='inflow_scaled', 
+                                       reservoir_name=reservoir_name, 
+                                       data_dir=data_dir, as_numpy=False)
+    elif inflow_type == 'inflow_pub':
+        # Load publication-based inflow observations
+        inflow_obs = load_observations(datatype='inflow_pub', 
                                        reservoir_name=reservoir_name, 
                                        data_dir=data_dir, as_numpy=False)
     else:
