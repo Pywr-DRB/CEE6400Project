@@ -16,4 +16,7 @@ source venv/bin/activate
 echo "Starting figure generation..."
 python 04_make_figures.py
 # python 0x_plot_training_data.py
+echo "Figures from training data generated."
+python 05_validate.py
+echo "Figure generation complete."
 

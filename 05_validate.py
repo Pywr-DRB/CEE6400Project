@@ -387,7 +387,7 @@ def main():
 
                 indie = Reservoir(
                     inflow=inflow, dates=dt_idx, capacity=float(reservoir_capacity[res]),
-                    policy_type=pol, policy_params=params, initial_storage=None, name=res
+                    policy_type=pol, policy_params=params, initial_storage=storage0, name=res
                 )
                 indie.reset(); indie.run()
                 indie_S_full = pd.Series(indie.storage_array.flatten(), index=dt_idx, name=res)

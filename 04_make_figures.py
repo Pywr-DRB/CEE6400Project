@@ -525,6 +525,31 @@ if __name__ == "__main__":
                         name = reservoir_name,
                     )
                     
+
+                    # --- policy surface plot ---
+                    surf_dir = Path(FIG_DIR, "figX_policy_surfaces")
+                    surf_dir.mkdir(parents=True, exist_ok=True)
+
+                    surface_path = surf_dir / f"{reservoir_name}_{policy_type}_{solution_type.replace(' ', '_')}_surface.png"
+
+                    # Each policy class has its own plot; call the class-specific method:
+                    if hasattr(reservoir.policy, "plot_surfaces_for_different_weeks"):
+                        reservoir.policy.plot_surfaces_for_different_weeks(
+                            fname=str(surface_path),
+                            save=True,
+                            grid=40,      # resolution
+                            n_weeks=5     # how many week slices
+                            # or weeks=np.linspace(0,1,5)
+                        )
+                    elif hasattr(reservoir.policy, "plot_policy_surface"):   # STARFIT special, if you prefer that look
+                        reservoir.policy.plot_policy_surface(
+                            save=True,
+                            fname=f"{reservoir_name}_{policy_type}_{solution_type.replace(' ', '_')}_policy_surface.png"
+                        )
+                    else:
+                        # Fallback to simple mid-season slice if neither multi-week nor custom is defined
+                        reservoir.policy.plot(N=41)
+
                     # Run 
                     reservoir.run()
                     

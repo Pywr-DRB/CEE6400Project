@@ -111,7 +111,7 @@ def evaluate(*vars):
         capacity = reservoir_capacity[RESERVOIR_NAME],
         policy_type = POLICY_TYPE,
         policy_params = list(vars),
-        initial_storage = None, # set initial storage to 80% of capacity
+        initial_storage = initial_storage_obs,
         name = RESERVOIR_NAME,
     )
     
