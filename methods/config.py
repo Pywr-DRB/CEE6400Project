@@ -158,6 +158,8 @@ reservoir_capacity = {
     "blueMarsh": 42320.35,
 }
 
+LOW_STORAGE_FRACTION = 0.05
+
 # Inflow bounds used for normalization (MGD)
 inflow_bounds_by_reservoir = {
     "prompton":           {"I_min": 0.0, "I_max": 7500.00},   # I_max = 1740.00 × 1.5 = 2610.00

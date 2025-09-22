@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import warnings
 from pathlib import Path
+import matplotlib.pyplot as plt
+
 warnings.filterwarnings("ignore")
 
 from methods.config import NFE, SEED, ISLANDS
@@ -17,6 +19,8 @@ from methods.load.observations import get_observational_training_data
 from methods.plotting.plot_pareto_front_comparison import plot_pareto_front_comparison
 from methods.plotting.plot_parallel_axis import custom_parallel_coordinates
 from methods.plotting.plot_reservoir_storage_release_distributions import plot_storage_release_distributions
+from methods.plotting.plot_release_storage_9panel import plot_release_storage_9panel
+
 
 # ======= PARAM NAME MAPS (match run_simple_model.py) =======
 from methods.config import n_rbfs, n_rbf_inputs, n_segments, n_pwl_inputs
@@ -135,11 +139,11 @@ print(f"Reservoirs: {RESERVOIR_NAMES}")
 REMAKE_PARALLEL_PLOTS = True
 REMAKE_DYNAMICS_PLOTS = True
 
-
 reservoir_labels = {
     'beltzvilleCombined': 'Beltzville',
     'fewalter': 'FE Walter',
     'prompton': 'Prompton',
+    'blueMarsh': 'Blue Marsh',
 }
 
 policy_labels = {
@@ -154,7 +158,6 @@ policy_colors = {
         'PWL': 'green',
 }
 
-
 if __name__ == "__main__":
     
     ## Load data
@@ -162,7 +165,7 @@ if __name__ == "__main__":
                 reservoir_name='prompton',
                 data_dir = PROCESSED_DATA_DIR,
                 as_numpy=False,
-                scaled_inflows=True
+                inflow_type='inflow_pub' #specify type of inflow data here options: 'inflow', 'inflow_scaled', 'inflow_pub'
             )
     print(f"Inflows shape: {inflow_obs.shape}")
     print(f"Datetime: {inflow_obs.index}")
@@ -175,6 +178,7 @@ if __name__ == "__main__":
     Path(FIG_DIR, "fig1_pareto_front_comparison").mkdir(parents=True, exist_ok=True)
     Path(FIG_DIR, "fig2_parallel_axes").mkdir(parents=True, exist_ok=True)
     Path(FIG_DIR, "fig3_dynamics").mkdir(parents=True, exist_ok=True)
+    Path(FIG_DIR, "fig4_validation_9panel").mkdir(parents=True, exist_ok=True)
 
     ####################################################
     ### Load & process data ############################
@@ -200,19 +204,30 @@ if __name__ == "__main__":
             # Borg output fname
             fname = f"{OUTPUT_DIR}/MMBorg_{ISLANDS}M_{policy_type}_{reservoir_name}_nfe{NFE}_seed{SEED}.csv"
             
-            obj_df, var_df = load_results(fname, obj_labels=obj_labels,
-                                          filter=True, obj_bounds=OBJ_FILTER_BOUNDS)
-            
+            # Load without filter to count raw rows
+            obj_df_raw, var_df_raw = load_results(
+                fname, obj_labels=obj_labels, filter=False, obj_bounds=None
+            )
+            print(f"[RAW] {reservoir_name}/{policy_type}: {len(obj_df_raw)} rows before filter")
 
+            # Apply your filter explicitly so we can see the deltas
+            obj_df, var_df = load_results(
+                fname, obj_labels=obj_labels, filter=False, obj_bounds=OBJ_FILTER_BOUNDS
+            )
+            print(f"[FLT] {reservoir_name}/{policy_type}: {len(obj_df)} rows after filter")
+            
+            # If nothing loaded, skip this (reservoir, policy) combo
             if len(obj_df) == 0:
                 print(f"Warning: No solutions found for {policy_type} with {reservoir_name}.")
                 continue
+
+            solution_objs[reservoir_name][policy_type] = obj_df
+            solution_vars[reservoir_name][policy_type] = var_df
 
             # Print the number of solutions
             msg = f"#### Reservoir: {reservoir_name} Policy: {policy_type} ####\n"
             msg += f"Number of solutions after filter: {len(obj_df)}\n"
             print(msg)
-            
             
             ### Find focal solutions
             # Different metrics for 'best' solutions
@@ -238,16 +253,13 @@ if __name__ == "__main__":
             # ================== INSERT THIS BLOCK ==================
             # Print parameters for each focal pick (uses the helpers you added)
             try:
-                # Best Average All (main ask)
-                params_best_all = solution_vars[reservoir_name][policy_type].iloc[idx_best_all_avg].values
+                params_best_all   = solution_vars[reservoir_name][policy_type].iloc[idx_best_all_avg].values
+                params_best_release   = solution_vars[reservoir_name][policy_type].iloc[idx_best_release].values
+                params_best_storage = solution_vars[reservoir_name][policy_type].iloc[idx_best_storage].values
+                params_best_average   = solution_vars[reservoir_name][policy_type].iloc[idx_best_average].values
+
                 print_params_flat(policy_type, params_best_all)
                 print_params_pretty(policy_type, params_best_all)
-
-                # (Optional) also print others:
-                params_best_release = solution_vars[reservoir_name][policy_type].iloc[idx_best_release].values
-                params_best_storage = solution_vars[reservoir_name][policy_type].iloc[idx_best_storage].values
-                params_best_average = solution_vars[reservoir_name][policy_type].iloc[idx_best_average].values
-
                 print("\n[Params] Best Release NSE:")
                 print_params_flat(policy_type, params_best_release)
 
@@ -278,9 +290,9 @@ if __name__ == "__main__":
             obj_df["highlight"] = highlight_labels
 
 
-            ### Save solution data for later plots
-            solution_objs[reservoir_name][policy_type] = obj_df
-            solution_vars[reservoir_name][policy_type] = var_df
+            # ### Save solution data for later plots
+            # solution_objs[reservoir_name][policy_type] = obj_df
+            # solution_vars[reservoir_name][policy_type] = var_df
             
     for policy_type in solution_objs['fewalter'].keys():
         print(f'solution_objs has policy type: {policy_type}')
@@ -288,6 +300,9 @@ if __name__ == "__main__":
         print(f'solution_objs has policy type: {policy_type}')
     for policy_type in solution_objs['prompton'].keys():
         print(f'solution_objs has policy type: {policy_type}')
+    for policy_type in solution_objs['blueMarsh'].keys():
+        print(f'solution_objs has policy type: {policy_type}')
+
     #################################################
     m="#### Figure 1 - Pareto Front Comparison #####"
     #################################################
@@ -467,7 +482,7 @@ if __name__ == "__main__":
                 reservoir_name=reservoir_name,
                 data_dir = PROCESSED_DATA_DIR,
                 as_numpy=False,
-                scaled_inflows=True
+                inflow_type='inflow_pub' #specify type of inflow data here options: 'inflow', 'inflow_scaled', 'inflow_pub'
             )
             
             # Keep just arrays
@@ -521,9 +536,10 @@ if __name__ == "__main__":
                     ## Plot dynamics
                     fig_fname = f"{FIG_DIR}/fig3_dynamics/"
                     fig_fname += f"{reservoir_name}_{policy_type}_{solution_type}.png"
-            
-            
-                    plot_storage_release_distributions(
+                    base = f"{FIG_DIR}/fig3_dynamics/{reservoir_name}_{policy_type}_{solution_type.replace(' ', '_')}"
+
+                    # 1) Quantile storage + IR bands (log-log)
+                    fig1, _ = plot_storage_release_distributions(
                         obs_storage=storage_obs.flatten(),
                         obs_release=release_obs.flatten(),
                         sim_storage=sim_storage.flatten(),
@@ -533,15 +549,135 @@ if __name__ == "__main__":
                         storage_distribution=True,
                         inflow_scatter=False,
                         inflow_vs_release=True,
-                        fname=fig_fname
+                        fname=f"{base}__quantIR.png"
                     )
+                    plt.close(fig1)
+
+                    # 2) Spaghetti storage + release FDCs
+                    fig2, _ = plot_storage_release_distributions(
+                        obs_storage=storage_obs.flatten(),
+                        obs_release=release_obs.flatten(),
+                        sim_storage=sim_storage.flatten(),
+                        sim_release=sim_release.flatten(),
+                        obs_inflow=inflow_obs.flatten(),
+                        datetime=datetime,
+                        storage_distribution=False,   # spaghetti
+                        inflow_scatter=False,
+                        inflow_vs_release=False,      # FDC
+                        fname=f"{base}__spagFDC.png"
+                    )
+                    plt.close(fig2)
+
+                    # 3) Quantile storage + weekly scatter (log)
+                    fig3, _ = plot_storage_release_distributions(
+                        obs_storage=storage_obs.flatten(),
+                        obs_release=release_obs.flatten(),
+                        sim_storage=sim_storage.flatten(),
+                        sim_release=sim_release.flatten(),
+                        obs_inflow=inflow_obs.flatten(),
+                        datetime=datetime,
+                        storage_distribution=True,
+                        inflow_scatter=True,          # weekly scatter
+                        inflow_vs_release=False,
+                        fname=f"{base}__quantWeekly.png"
+                    )
+                    plt.close(fig3)
+            
                 
     ####################################################
     ### Figure 4 - simulation dynamics     #############
     ### during historic validation period  #############
     ####################################################
     
-    #TODO
+    if REMAKE_DYNAMICS_PLOTS:
+        print("##### Figure 4 - Validation 9-panel plots #####")
+
+        VAL_START = "1980-01-01"
+        VAL_END   = "2018-12-31"
+        VAL_INFLOW_TYPE = "inflow_pub"  # or 'inflow' / 'inflow_scaled'
+
+        solution_types = [
+            "Best Release NSE",
+            "Best Storage NSE",
+            "Best Average NSE",
+            "Best Average All",
+        ]
+
+        for reservoir_name in RESERVOIR_NAMES:
+
+            # Load observed series as pandas (keep index for slicing/resampling)
+            inflow_df, release_df, storage_df = get_observational_training_data(
+                reservoir_name=reservoir_name,
+                data_dir=PROCESSED_DATA_DIR,
+                as_numpy=False,
+                inflow_type=VAL_INFLOW_TYPE
+            )
+
+            # guard: need inflow to simulate; skip if missing or empty in window
+            if inflow_df.empty:
+                print(f"[Fig4] Skip {reservoir_name}: no inflow data.")
+                continue
+
+            # Slice to validation window
+            slicer = slice(VAL_START, VAL_END)
+            inflow_win   = inflow_df.loc[slicer][reservoir_name] if reservoir_name in inflow_df.columns else inflow_df.loc[slicer].iloc[:,0]
+            release_win  = release_df.loc[slicer][reservoir_name] if reservoir_name in release_df.columns else None
+            storage_win  = storage_df.loc[slicer][reservoir_name] if reservoir_name in storage_df.columns else storage_df.loc[slicer].iloc[:,0]
+
+            if len(inflow_win) == 0 or len(storage_win) == 0:
+                print(f"[Fig4] Skip {reservoir_name}: empty validation window.")
+                continue
+
+            for policy_type in POLICY_TYPES:
+                if policy_type not in solution_objs.get(reservoir_name, {}):
+                    continue
+
+                obj_df = solution_objs[reservoir_name][policy_type]
+                var_df = solution_vars[reservoir_name][policy_type]
+
+                for pick in solution_types:
+                    # select exactly ONE parameter vector for this highlight pick
+                    mask = (obj_df["highlight"] == pick)
+                    if mask.sum() == 0:
+                        print(f"[Fig4] {reservoir_name}/{policy_type}: no '{pick}' solution; skipping.")
+                        continue
+                    params_1d = var_df.loc[mask].iloc[0].values
+
+                    # simulate over validation window
+                    dt_index = inflow_win.index
+                    initial_storage = float(storage_win.iloc[0])
+
+                    model = Reservoir(
+                        inflow=inflow_win.values,
+                        dates=dt_index,
+                        capacity=reservoir_capacity[reservoir_name],
+                        policy_type=policy_type,
+                        policy_params=params_1d,
+                        initial_storage=initial_storage,
+                        name=reservoir_name,
+                    )
+                    model.run()
+
+                    sim_storage = pd.Series(model.storage_array.flatten(), index=dt_index, name=reservoir_name)
+                    sim_release = pd.Series((model.release_array + model.spill_array).flatten(), index=dt_index, name=reservoir_name)
+
+                    # observed series (may be None for release)
+                    obs_release = release_win if release_win is not None else None
+                    obs_storage = storage_win
+
+                    # save 9-panel
+                    out = f"{FIG_DIR}/fig4_validation_9panel/{reservoir_name}_{policy_type}_{pick.replace(' ','_')}_9panel.png"
+                    plot_release_storage_9panel(
+                        reservoir=reservoir_name,
+                        sim_release=sim_release,
+                        obs_release=obs_release,
+                        sim_storage_MG=sim_storage,
+                        obs_storage_MG=obs_storage,
+                        start=VAL_START,
+                        end=VAL_END,
+                        save_path=out
+                    )
+                    print(f"[Fig4] Saved 9-panel: {out}")
     
     
     print("DONE!")
