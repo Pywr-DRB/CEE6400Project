@@ -5,8 +5,11 @@
 #SBATCH --ntasks=1
 #SBTACH --nodes=1
 
+# Load Python module
 module load python/3.11.5
-source venv/bin/activate
+
+# Activate Python virtual environment #change based on your directory
+source /home/fs02/pmr82_0001/ms3654/envs/borg-env/bin/activate
 
 # ### Run pareto solutions
 # echo "Running pareto solution policy simulations..."

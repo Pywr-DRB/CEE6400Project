@@ -96,10 +96,19 @@ def plot_release_storage_9panel(
     if len(fdc_y_sim[0]): axs[2,2].plot(*fdc_y_sim, label="Sim", ls="--", color="tab:blue")
     axs[2,2].set_title(f"{reservoir}: Annual Release FDC"); axs[2,2].set_xlabel("Exceedance (%)"); axs[2,2].set_yscale("log"); axs[2,2].grid(True); axs[2,2].legend()
 
-    fig.suptitle(f"{reservoir} — Storage & Release Diagnostics\n{start} to {end}", fontsize=16, weight="bold")
-    fig.tight_layout(rect=[0,0,1,0.95])
+    fig.suptitle(f"{reservoir} — Storage & Release Diagnostics\n{start} to {end}",
+                 fontsize=16, weight="bold")
+
+    for ax in axs.ravel():
+        leg = ax.get_legend()
+        if leg is not None:
+            ax.legend(loc="center left", bbox_to_anchor=(1.01, 0.5), framealpha=0.9)
+
+    fig.tight_layout(rect=[0,0,0.86,0.90])
     if save_path:
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(save_path, dpi=300); plt.close(fig)
+        fig.savefig(save_path, dpi=300)
+        plt.close(fig)
     else:
         plt.show()
+

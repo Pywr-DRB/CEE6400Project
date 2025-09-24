@@ -1,11 +1,30 @@
 # CEE6400Project
 Marilyn &amp; Trevor's course project for CEE6400 Spring 2025
 
+Parametric reservoir policies (STARFIT, RBF, PWL) are optimized with MMBorgMOEA and validated in both a standalone reservoir simulator and Pywr-DRB. This repo provides a reproducible workflow from data prep → optimization → post-processing/figures → validation.
 
-# File Descriptions
-- `writeup.md` contains a draft of the project report.
-- `literature.md` contains a list of relevant literature to be used to guide methods and be cited in the report.
-- `config.py` contains specifications to be used to control project methods.
+# Repo Structure (key files)
+
+CEE6400Project/
+├── 01_retrieve_data.py
+├── 02_process_data.py
+├── 03_parallel_borg_run.py
+├── 04_make_figures.py
+├── 05_validate.py
+├── run_preprocessing.sh
+├── run_parallel_mmborg.sh
+├── run_postprocessing_and_figures.sh
+├── methods/
+│ ├── config.py # single source of truth for config/context
+│ ├── reservoir/model.py # standalone Reservoir model
+│ ├── load/ # loaders for results & observations
+│ └── plotting/ # figure builders (Pareto, axes, dynamics, 9-panel, errors)
+├── obs_data/{raw,processed,pub_reconstruction}
+├── outputs/ # BORG CSVs
+├── figures/ # figures (fig1..fig5 and subfolders)
+├── logs/ # SLURM logs
+├── borg.py, libborg*.so, MOEAFramework-5.0/, moeaframework/
+└── requirements.txt
 
 
 # Resources:
@@ -73,9 +92,11 @@ Navigate back to the `CEE6400Project` folder:
 cd ./CEE6400Project
 ```
 
-The `parallel_borg_run.py` file is used to execute the MMBorgMOEA optimization for a specific `POLICY_TYPE` and `RESERVOIR_NAME`.
+The `03_parallel_borg_run.py` file is used to execute the MMBorgMOEA optimization for a specific `POLICY_TYPE` and `RESERVOIR_NAME`.
 
 The `POLICY_TYPE` and `RESERVOIR_NAME` must be provided as command line arguments when running the script.   
+
+Submit the multi-reservoir × multi-policy sweep on Hopper:
 
 The `run_parallel_mmborg.sh` script loops through different `POLICY_TYPE` and `RESERVOIR_NAME` options.  
 
@@ -89,3 +110,56 @@ The following are dfined in the `methods/config.py`, and can be changed by modif
 - Parameter bounds
 - Seed number
 
+## Post-processing and Figures 
+
+After optimization completes, generate Pareto comparisons, parallel axes, dynamics, and validation figures:
+
+```
+sbatch run_postprocessing_and_figures.sh
+```
+
+That script runs:
+
+`04_make_figures.py` → Fig 1–4
+
+- Fig 1: Pareto Front Comparison (per reservoir, across policies)
+
+- Fig 2: Parallel Axes (all solutions; and highlighted “best” picks)
+
+- Fig 3: System Dynamics diagnostics (quantiles, spaghetti + FDC, weekly scatter)
+
+- Fig 4: 9-panel validation plots over a historical window
+
+`05_validate.py` → Fig 5 (validation overlays & error diagnostics)
+
+- 2×1 overlay: Independent vs Pywr-DRB (Parametric) vs Pywr-DRB (Default)
+
+- Error time series & error-vs-percentile (with seasonal/decadal panels)
+
+- Optional CSV series saving and numerical comparisons
+
+## Reproducibility knobs
+
+Key parameters and settings are centralized in `methods/config.py`:
+
+- `SEED` (default: 71)  
+- `NFE` (default: 30000)  
+- `ISLANDS` (default: 4)  
+- `EPSILONS`, `METRICS`, `OBJ_FILTER_BOUNDS`  
+- All policy parameter bounds (STARFIT/RBF/PWL)  
+- Per-reservoir capacities, inflow bounds, release min/max  
+
+Additional reproducibility controls:
+
+- **SLURM job files:**  
+  - `run_parallel_mmborg.sh` (nodes, tasks per node, module loads, environment path)  
+  - `run_postprocessing_and_figures.sh` (module, environment, figure scripts)  
+
+**Note:** There are currently two `config.py` files — one in this repo and one in the Pywr-DRB repo. They are kept the same for now, but the **main configuration** lives in the Pywr-DRB branch.  
+
+## Policy sources
+
+The parametric policy classes (**STARFIT, RBF, PWL**) used here originate from the  
+[Pywr-DRB repository](https://github.com/Pywr-DRB/Pywr-DRB) (feature branch for parametric releases).  
+This ensures that the policies optimized in this repo are consistent with those implemented in Pywr-DRB  
+for validation and comparison.  

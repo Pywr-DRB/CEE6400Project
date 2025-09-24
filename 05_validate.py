@@ -157,6 +157,23 @@ def compare_series(a: pd.Series, b: pd.Series, name: str, rtol=0.0, atol=0.0):
     ok = np.allclose(a.values, b.values, rtol=rtol, atol=atol, equal_nan=True)
     print(f"[COMPARE:{name}] allclose rtol={rtol} atol={atol}: {ok} over {len(a)} steps."); return ok
 
+def _robust_limits(series_list, lo=1.0, hi=99.0, pad=0.06):
+    vals = pd.concat([pd.Series(s, dtype=float) for s in series_list if s is not None], axis=0)
+    vals = vals.replace([np.inf, -np.inf], np.nan).dropna()
+    if vals.empty:
+        return None
+    ql, qh = np.nanpercentile(vals.values, [lo, hi])
+    span = qh - ql
+    return (ql - pad*span, qh + pad*span)
+
+def _compute_common_axes(indie_R, pywr_Rv, def_Rv, obs_release,
+                         indie_S, pywr_Sv, def_Sv, obs_storage):
+    # Release y-lims (MGD)
+    r_ylim = _robust_limits([indie_R, pywr_Rv, def_Rv, obs_release])
+    # Storage y-lims (MG) — keep MG here; 9-panel has its own %cap axis.
+    s_ylim = _robust_limits([indie_S, pywr_Sv, def_Sv, obs_storage])
+    return s_ylim, r_ylim
+
 # ---- optionally fill Prompton obs gage via NWIS if missing ----
 def _maybe_fetch_prompton_obs_if_missing(data_obj, base_key, reservoir_name):
     if reservoir_name.lower() != "prompton":
@@ -358,9 +375,9 @@ def main():
         inflow_df, release_df, storage_df = get_observational_training_data(
             reservoir_name=res, data_dir=PROCESSED_DATA_DIR, as_numpy=False, inflow_type="inflow_pub"
         )
-        slicer = slice(args.val_start, args.val_end)
-        obs_release = release_df.loc[slicer][res] if res in release_df.columns else None
-        obs_storage = storage_df.loc[slicer][res] if res in storage_df.columns else storage_df.loc[slicer].iloc[:,0]
+        slicer = slice(val_start, val_end)
+        obs_release = (release_df.loc[slicer][res] if res in release_df.columns else None)
+        obs_storage = (storage_df.loc[slicer][res] if res in storage_df.columns else storage_df.loc[slicer].iloc[:,0])
 
         for pol in args.policies:
             if pol not in sol_objs.get(res, {}):
@@ -398,9 +415,16 @@ def main():
                 (pywr_R, pywr_S), (def_R, def_S) = run_pywr_pair(
                     res, pol, params, pywr_start, pywr_end, pywr_inflow_type, outdir
                 )
+
                 pywr_Rv = pywr_R.loc[slicer]; pywr_Sv = pywr_S.loc[slicer]
                 def_Rv  = def_R.loc[slicer];  def_Sv  = def_S.loc[slicer]
+                indie_R = indie_R_full.loc[slicer]; indie_S = indie_S_full.loc[slicer]
 
+                # compute per-reservoir common axes
+                s_ylim, r_ylim = _compute_common_axes(
+                    indie_R, pywr_Rv, def_Rv, obs_release,
+                    indie_S, pywr_Sv, def_Sv, obs_storage
+                )
                 # 3) nine-panel validation figure (pywr parametric vs obs; storage in % cap)
                 nine_png = os.path.join(outdir_9, f"{res}_{pol}_{pick.replace(' ','_')}_9panel.png")
                 plot_release_storage_9panel(
@@ -409,23 +433,26 @@ def main():
                     obs_release=obs_release,
                     sim_storage_MG=pywr_Sv,
                     obs_storage_MG=obs_storage,
-                    start=args.val_start, end=args.val_end,
+                    start=val_start, end=val_end,
                     save_path=nine_png
                 )
                 print(f"[✓] saved 9-panel: {nine_png}")
 
                 # 4) 2×1 storage/release dynamics overlay (independent vs pywr vs default)
                 tag = f"{res}_{pol}_{pick.replace(' ','_')}"
-                dyn_png = os.path.join(outdir_dyn, f"{tag}_2x1_dynamics.png")
+                dyn_png = os.path.join(outdir_dyn, f"{res}_{pol}_{pick.replace(' ','_')}_2x1_dynamics.png")
                 plot_2x1_dynamics(
                     reservoir=res, policy=pol,
                     indie_R=indie_R, indie_S=indie_S,
                     pywr_R=pywr_Rv, pywr_S=pywr_Sv,
                     def_R=def_Rv,  def_S=def_Sv,
+                    obs_R=obs_release, obs_S=obs_storage,
+                    date_label=f"{val_start} to {val_end}",
+                    ylims_storage=s_ylim, ylims_release=r_ylim,
                     save_path=dyn_png,
                 )
 
-                period_lbl = f"{res} {pol} {pick}"
+                period_lbl = f"{res} {pol} {pick} ({val_start}–{val_end})"
                 # releases
                 plot_error_time_series_enhanced(
                     df_obs=obs_release.to_frame(res),   # DataFrame with column named res

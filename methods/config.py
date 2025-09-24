@@ -3,6 +3,7 @@ Contains configuration required for optimization.
 """
 import os
 import numpy as np
+from copy import deepcopy
 from typing import Tuple
 from pywrdrb.utils.constants import cfs_to_mgd, ACRE_FEET_TO_MG
 
@@ -214,6 +215,7 @@ BASE_POLICY_CONTEXT_BY_RESERVOIR = {
         "storage_capacity": _icap(name),
         "x_min": (0.0, _ibounds(name)[0], 1.0),
         "x_max": (_icap(name), _ibounds(name)[1], 366.0),
+        "low_storage_threshold": LOW_STORAGE_FRACTION * _icap(name),
     }
     for name in reservoir_options
 }
@@ -225,8 +227,8 @@ def get_policy_context(
     release_max_override: float | None = None,
     capacity_override: float | None = None,
     inflow_bounds_override: tuple[float, float] | None = None,
+    low_storage_threshold_override: float | None = None,
 ) -> dict:
-    # (unchanged logic; now BASE is consistent with the dicts above)
     from copy import deepcopy
     try:
         base = BASE_POLICY_CONTEXT_BY_RESERVOIR[reservoir_name]
@@ -241,6 +243,7 @@ def get_policy_context(
     S_cap = float(ctx["storage_capacity"])
     _, I_min_base, _ = ctx["x_min"]
     _, I_max_base, _ = ctx["x_max"]
+    S_low = float(base["low_storage_threshold"])
 
     if release_min_override is not None:
         R_min = float(release_min_override)
@@ -252,6 +255,11 @@ def get_policy_context(
         I_min, I_max = map(float, inflow_bounds_override)
     else:
         I_min, I_max = float(I_min_base), float(I_max_base)
+    if low_storage_threshold_override is not None:
+        S_low = float(low_storage_threshold_override)
+    else:
+        # keep S_low consistent with possibly overridden capacity
+        S_low = max(0.0, LOW_STORAGE_FRACTION * S_cap) if capacity_override is not None else S_low
 
     if not (I_max > I_min):
         raise ValueError(f"{reservoir_name}: I_max ({I_max}) must be > I_min ({I_min}).")
@@ -264,6 +272,7 @@ def get_policy_context(
         "storage_capacity": S_cap,
         "x_min": (0.0, I_min, 1.0),
         "x_max": (S_cap, I_max, 366.0),
+        "low_storage_threshold": S_low,
     }
 
 # Optional: precompute
