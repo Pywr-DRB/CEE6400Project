@@ -3,28 +3,29 @@ Marilyn &amp; Trevor's course project for CEE6400 Spring 2025
 
 Parametric reservoir policies (STARFIT, RBF, PWL) are optimized with MMBorgMOEA and validated in both a standalone reservoir simulator and Pywr-DRB. This repo provides a reproducible workflow from data prep → optimization → post-processing/figures → validation.
 
-# Repo Structure (key files)
+## Repo Structure (key files)
 
-CEE6400Project/
-├── 01_retrieve_data.py
-├── 02_process_data.py
-├── 03_parallel_borg_run.py
-├── 04_make_figures.py
-├── 05_validate.py
-├── run_preprocessing.sh
-├── run_parallel_mmborg.sh
-├── run_postprocessing_and_figures.sh
-├── methods/
-│ ├── config.py # single source of truth for config/context
-│ ├── reservoir/model.py # standalone Reservoir model
-│ ├── load/ # loaders for results & observations
-│ └── plotting/ # figure builders (Pareto, axes, dynamics, 9-panel, errors)
-├── obs_data/{raw,processed,pub_reconstruction}
-├── outputs/ # BORG CSVs
-├── figures/ # figures (fig1..fig5 and subfolders)
-├── logs/ # SLURM logs
-├── borg.py, libborg*.so, MOEAFramework-5.0/, moeaframework/
-└── requirements.txt
+| Path / File | Description |
+|-------------|-------------|
+| `01_retrieve_data.py` | Retrieve observational reservoir data |
+| `02_process_data.py` | Process raw → model-ready data |
+| `03_parallel_borg_run.py` | Run MMBorgMOEA optimization (single policy/reservoir) |
+| `04_make_figures.py` | Generate main figures (Pareto, parallel axes, dynamics, validation) |
+| `05_validate.py` | Validation overlays & error diagnostics |
+| `run_preprocessing.sh` | SLURM script for data prep |
+| `run_parallel_mmborg.sh` | SLURM script for multi-policy × multi-reservoir optimization sweep |
+| `run_postprocessing_and_figures.sh` | SLURM script to generate all post-processing figures |
+| `methods/config.py` | Single source of truth for config/context (seeds, bounds, metrics) |
+| `methods/reservoir/model.py` | Standalone Reservoir model implementation |
+| `methods/load/` | Loaders for results & observations |
+| `methods/plotting/` | Figure builders (Pareto, axes, dynamics, 9-panel, errors) |
+| `obs_data/{raw,processed,pub_reconstruction}` | Observational data inputs |
+| `outputs/` | Raw BORG CSVs |
+| `figures/` | Generated figures (fig1–fig5, subfolders) |
+| `logs/` | SLURM logs |
+| `borg.py`, `libborg*.so`, `MOEAFramework-5.0/`, `moeaframework/` | Borg Python wrapper + MOEAFramework Java dependency |
+| `requirements.txt` | Python dependencies |
+
 
 
 # Resources:
