@@ -12,7 +12,7 @@ runtimeDir="./runtime"
 metricDir="./metrics"
 all_seeds=$(seq 1 $NUM_SEEDS)
 all_masters=$(seq 0 $((NUM_MASTERS-1)))
-refFile_name="PiecewiseLinear_fewalter_refset"
+refFile_name="STARFIT_fewalter_refset"
 
 
 refFile="$setDir/$refFile_name.ref"
@@ -40,7 +40,7 @@ for s in $all_seeds; do
     for master in $all_masters; do
 
         # change the filename here to match your output convention
-        filename="MMBorg_4M_PiecewiseLinear_fewalter_nfe30000_seed${s}_${master}"
+        filename="MMBorg_4M_STARFIT_fewalter_nfe30000_seed${s}_${master}"
         infile="$runtimeDir/$filename.runtime"
         outfile="$metricDir/${filename}.metric"
 

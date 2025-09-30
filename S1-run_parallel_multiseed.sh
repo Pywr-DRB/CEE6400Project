@@ -56,7 +56,7 @@ submit_job() {
 }
 
 # Loop to submit jobs with different seeds
-POLICY_TYPE="PiecewiseLinear"
+POLICY_TYPE="STARFIT"
 RESERVOIR_NAME="fewalter"
 
 for seed in {1..10}; do 
@@ -68,6 +68,7 @@ done
 # Copy runtime files to separate folders
 echo "Copying runtime and refset files to respective folders..."
 for seed in {1..10}; do
-   cp outputs/MMBorg_4M_PiecewiseLinear_fewalter_nfe30000_seed${seed}_*.runtime ./runtime/ 2>/dev/null
-   cp outputs/MMBorg_4M_PiecewiseLinear_fewalter_nfe30000_seed${seed}.set refsets/ 2>/dev/null
+   cp outputs/MMBorg_4M_${POLICY_TYPE}_${RESERVOIR_NAME}_nfe30000_seed${seed}_*.runtime ./runtime/ 2>/dev/null
+   cp outputs/MMBorg_4M_${POLICY_TYPE}_${RESERVOIR_NAME}_nfe30000_seed${seed}.set refsets/ 2>/dev/null
 done
+

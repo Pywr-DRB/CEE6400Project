@@ -47,7 +47,7 @@ sbatch S0-MOEAFramework5-install.sh
 
 cd MOEAFramework-5.0/
 
-./cli BuildProblem --problemName PolInf --language python --numberOfVariables 15 --numberOfObjectives 4 --lowerBound -10.0 --upperBound 10.0
+./cli BuildProblem --problemName PolInf --language python --numberOfVariables 17 --numberOfObjectives 4 --numberOfConstraints 1 --lowerBound -999.0 --upperBound 999.0
 
 cd native/PolInf/
 
@@ -66,4 +66,40 @@ sbatch S4-extract-objs.sh refsets/PiecewiseLinear_fewalter_refset.ref refsets/re
 
 python S5-plot-metrics.py
 ```
+
+
+## Hard coded settings
+
+The following is a list of files which have manually specified values for reservoir or policy formulation. These are the files that need to be manually modified when running a new (reservoir, policy) pair through the multi-seed optimization. 
+
+- `1-header-file.txt`
+- `S1-run_parallel_multiseed.sh`
+- Modify command: `./cli BuildProblem --problemName PolInf --language python --numberOfVariables 17 --numberOfObjectives 4 --lowerBound -999.0 --upperBound 999.0`
+    - Rerun command
+    - Repeat custom problem setup
+- `S2-MOEAFramework5-gen-approx-refsets.sh`
+    - Set `refFile_name` 
+    - CAREFUL need to separate out the different `set` files for different reservoir, policy pairs.
+    - Currently, uses all `.set` files in the folder `for f in "$setDir"/*.set`
+- `S3-MOEAFramework3-runtime-metrics.sh`
+    - Set `refFile_name` 
+    - Modify `filename`
+- `S4-extract-dvs.sh`
+    - Set `NUM_DVS`
+- `S5-plot-metrics.py`
+    - Change `filename`
+
+
+
+## Hard coded settings
+
+The following is a list of files which have manually specified values for reservoir or policy formulation. These are the files that need to be manually modified when running a new (reservoir, policy) pair through the multi-seed optimization. 
+
+- `1-header-file.txt`
+- `S1-run_parallel_multiseed.sh`
+- `S2-MOEAFramework5-gen-approx-refsets.sh`
+- `S3-MOEAFramework3-runtime-metrics.sh`
+- `S4-extract-dvs.sh`
+- `S5-plot-metrics.py`
+
 

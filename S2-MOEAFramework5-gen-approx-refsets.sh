@@ -10,7 +10,7 @@ setDir="./refsets"
 runtimeDir="./runtime"
 metricDir="./metrics"
 all_seeds=$(seq 1 $NUM_SEEDS)
-refFile_name="PiecewiseLinear_fewalter_refset"
+refFile_name="STARFIT_fewalter_refset"
 
 # Set the path to the CLI executable
 MOEAFramework5Path="MOEAFramework-5.0"
