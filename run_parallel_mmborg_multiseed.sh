@@ -41,7 +41,7 @@ submit_job() {
 
 # === Define parameters === #
 POLICY_TYPES=("RBF" "PWL" "STARFIT")
-RESERVOIR_NAMES=("fewalter" "prompton" "beltzvilleCombined")
+RESERVOIR_NAMES=("fewalter" "prompton" "beltzvilleCombined" "blueMarsh")
 
 # === Loop through all combinations === #
 for seed in {1..10}; do 

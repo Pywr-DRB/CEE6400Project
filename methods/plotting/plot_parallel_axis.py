@@ -39,10 +39,40 @@ def reorganize_objs(objs, columns_axes, ideal_direction, minmaxs):
     
     ### reorganize & normalize data to go from 0 (bottom of figure) to 1 (top of figure), 
     ### based on direction of preference for figure and individual axes
+    # if ideal_direction == 'bottom':
+    #     tops = objs_reorg.min(axis=0)
+    #     bottoms = objs_reorg.max(axis=0)
+    #     for i, minmax in enumerate(minmaxs):
+    #         if minmax == 'max':
+    #             objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i]) / \
+    #                                     (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
+    #         else:
+    #             bottoms[i], tops[i] = tops[i], bottoms[i]
+    #             objs_reorg.iloc[:, -1] = (objs_reorg.iloc[:, -1] - objs_reorg.iloc[:, -1].min(axis=0)) / \
+    #                                      (objs_reorg.iloc[:, -1].max(axis=0) - objs_reorg.iloc[:, -1].min(axis=0))
+    # elif ideal_direction == 'top':
+    #     tops = objs_reorg.max(axis=0)
+    #     bottoms = objs_reorg.min(axis=0)
+    #     for i, minmax in enumerate(minmaxs):
+    #         if minmax == 'max':
+    #             objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i] - objs_reorg.iloc[:, i].min(axis=0)) / \
+    #                                     (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
+    #         else:
+    #             bottoms[i], tops[i] = tops[i], bottoms[i]
+    #             objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i]) / \
+    #                                     (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
+
     if ideal_direction == 'bottom':
         tops = objs_reorg.min(axis=0)
         bottoms = objs_reorg.max(axis=0)
         for i, minmax in enumerate(minmaxs):
+            col = objs_reorg.iloc[:, i].astype(float)
+            mn, mx = col.min(), col.max()
+            span = mx - mn
+            if not np.isfinite(span) or span == 0:
+                # center a flat axis so lines render instead of NaNs
+                objs_reorg.iloc[:, i] = 0.5
+                continue
             if minmax == 'max':
                 objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i]) / \
                                         (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
@@ -54,6 +84,13 @@ def reorganize_objs(objs, columns_axes, ideal_direction, minmaxs):
         tops = objs_reorg.max(axis=0)
         bottoms = objs_reorg.min(axis=0)
         for i, minmax in enumerate(minmaxs):
+            col = objs_reorg.iloc[:, i].astype(float)
+            mn, mx = col.min(), col.max()
+            span = mx - mn
+            if not np.isfinite(span) or span == 0:
+                # center a flat axis so lines render instead of NaNs
+                objs_reorg.iloc[:, i] = 0.5
+                continue
             if minmax == 'max':
                 objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i] - objs_reorg.iloc[:, i].min(axis=0)) / \
                                         (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
@@ -61,7 +98,6 @@ def reorganize_objs(objs, columns_axes, ideal_direction, minmaxs):
                 bottoms[i], tops[i] = tops[i], bottoms[i]
                 objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i]) / \
                                         (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
-
     # Shuffle so that solutions are mixed
     # objs_reorg = objs_reorg.sample(frac=1).reset_index(drop=True)
 
@@ -76,8 +112,12 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
                                 zorder_by=None, zorder_num_classes=10, zorder_direction='ascending', 
                                 alpha_base=0.8, brushing_dict=None, alpha_brush=0.05, 
                                 lw_base=1.5, fontsize=14, 
-                                figsize=(11,6), fname=None):
-    
+                                figsize=(11,6), fname=None,
+                                bottom_pad=0.18,        # <— NEW: extra bottom margin for legends
+                                legend_pad=0.06,        # <— NEW: distance (in axes frac) to push legend below axes
+                                legend_ncol=4         # <— NEW: max number of columns in legend
+                                ):
+
     ### verify that all inputs take supported values
     assert ideal_direction in ['top','bottom']
     assert zorder_direction in ['ascending', 'descending']
@@ -90,6 +130,7 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
     
     ### create figure
     fig,ax = plt.subplots(1,1,figsize=figsize, gridspec_kw={'hspace':0.1, 'wspace':0.1})
+    fig.subplots_adjust(bottom=bottom_pad)   # <— NEW
 
     ### reorganize & normalize objective data
     objs_reorg, tops, bottoms = reorganize_objs(objs, columns_axes, ideal_direction, minmaxs)
@@ -144,7 +185,8 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
             color = get_color(objs[color_by_categorical].iloc[i], 
                               color_by_continuous, color_palette_continuous, 
                               color_by_categorical, color_dict_categorical)
-                        
+        
+ 
         ### order lines according to ascending or descending values of one of the objectives?
         if zorder_by is None:
             zorder = 4
@@ -167,17 +209,20 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
             
         ### loop over objective/column pairs & plot lines between parallel axes
         for j in range(objs_reorg.shape[1]-1):
-            
-            # If using categorical highlight, set alpha to 1.0 for any solutions where
-            # highlight != 'Other'
-            if color_by_categorical=="highlight" and objs[color_by_categorical].iloc[i] != 'Other':
-                alpha = alpha_base
-                lw = 2.5
-                zorder = 10
-            elif color_by_categorical=="highlight" and objs[color_by_categorical].iloc[i] == 'Other':
-                alpha = alpha_brush
-                lw = 1.0
-                zorder = 2
+
+            # --- style boost for highlight* columns (works for 'highlight' or 'highlight_adv') ---
+            is_hl = (color_by_categorical is not None
+                    and str(color_by_categorical).lower().startswith("highlight"))
+            if is_hl:
+                lab = str(objs[color_by_categorical].iloc[i])
+                if lab != "Other":
+                    alpha = alpha_base
+                    lw = 2.5
+                    zorder = 10
+                else:
+                    alpha = alpha_brush
+                    lw = 1.0
+                    zorder = 2
             
             y = [objs_reorg.iloc[i, j], objs_reorg.iloc[i, j+1]]
             x = [j, j+1]
@@ -208,7 +253,8 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
     ax.annotate('Direction of preference', xy=(-0.3,0.5), ha='center', va='center',
                 rotation=90, fontsize=fontsize)
 
-    ax.set_xlim(-0.4, 3.2)
+    n_axes = len(columns_axes)
+    ax.set_xlim(-0.5, n_axes - 0.5)
     ax.set_ylim(-0.4,1.1)
     
     for i,l in enumerate(axis_labels):
@@ -232,24 +278,40 @@ def custom_parallel_coordinates(objs, columns_axes=None, axis_labels=None,
                                  fontsize=fontsize)
         _ = cb.ax.set_xlabel(cb.ax.get_xlabel(), fontsize=fontsize)  
     ### categorical legend
-    elif color_by_categorical is not None:
-        leg = []
-        for label,color in color_dict_categorical.items():
-            if label == 'Other':
-                alpha = alpha_brush
-                lw = 1.0
-            else:
-                alpha = alpha_base
-                lw = 2.5
-            
-            leg.append(Line2D([0], [0], color=color, lw=3, 
-                              alpha=alpha, label=label))
-        _ = ax.legend(handles=leg, loc='lower center', 
-                      ncol=min(3, len(color_dict_categorical)),
-                      bbox_to_anchor=[0.5,0.01], frameon=False, 
-                      fontsize=fontsize)
+    # --- categorical legend (figure-level) ---
+    elif color_by_categorical is not None and color_dict_categorical is not None:
+        # Keep only labels actually present in the plotted data
+        present = pd.unique(objs[color_by_categorical].astype(str)).tolist()
+        labels_for_legend = [lab for lab in color_dict_categorical.keys() if lab in present]
+
+        # Build handles with the same “highlight vs Other” styling you used
+        is_hl = str(color_by_categorical).lower().startswith("highlight")
+        handles = []
+        for lab in labels_for_legend:
+            col = color_dict_categorical[lab]
+            a = (alpha_brush if (is_hl and lab == "Other") else alpha_base)
+            lw_leg = (1.0 if (is_hl and lab == "Other") else max(lw_base, 2.5 if is_hl else lw_base))
+            handles.append(Line2D([0], [0], color=col, lw=lw_leg, alpha=a, label=lab))
+
+        if handles:
+            # Place legend in FIGURE coords so bottom_pad/legend_pad work
+            ncols = min(legend_ncol if 'legend_ncol' in locals() else 4, len(handles))
+            leg = fig.legend(
+                handles=handles,
+                loc="lower center",
+                bbox_to_anchor=(0.5, legend_pad),   # <-- use legend_pad here
+                ncol=ncols,
+                frameon=False,
+                fontsize=fontsize
+            )
+
+            # Ensure the reserved bottom margin is big enough for the legend
+            fig.canvas.draw()  # need renderer for accurate bbox
+            bb = leg.get_window_extent(fig.canvas.get_renderer()).transformed(fig.transFigure.inverted())
+            needed = bb.height + legend_pad + 0.01  # small extra margin
+            if fig.subplotpars.bottom < needed:
+                fig.subplots_adjust(bottom=needed)
         
-    
      ### save figure
     if fname is not None:
          plt.savefig(fname, bbox_inches='tight', dpi=300)

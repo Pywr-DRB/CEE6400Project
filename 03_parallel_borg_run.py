@@ -26,7 +26,7 @@ from methods.config import DATA_DIR, PROCESSED_DATA_DIR, OUTPUT_DIR
 
 # Import settings from pywrdrb
 from methods.config import policy_n_params, policy_param_bounds
-from methods.config import reservoir_capacity
+from methods.config import reservoir_capacity, INERTIA_BY_RESERVOIR, release_max_by_reservoir
 
 
 root_dir = os.path.expanduser("./")
@@ -85,10 +85,26 @@ release_obs = release_obs.values.flatten().astype(np.float64)
 storage_obs = storage_obs.values.flatten().astype(np.float64)
 
 initial_storage_obs = storage_obs[0] 
+cap = reservoir_capacity[RESERVOIR_NAME]
+R_MAX = release_max_by_reservoir[RESERVOIR_NAME]
+iset = INERTIA_BY_RESERVOIR[RESERVOIR_NAME]
 
 # Setup objective function
-release_obj_func = ObjectiveCalculator(metrics=RELEASE_METRICS)
-storage_obj_func = ObjectiveCalculator(metrics=STORAGE_METRICS)
+# Release objectives (uses release inertia settings)
+release_obj_func = ObjectiveCalculator(
+    metrics=RELEASE_METRICS,
+    inertia_tau=iset["release"]["tau"],
+    inertia_scale_release=iset["release"]["scale"],
+    inertia_release_scale_value=(R_MAX if iset["release"]["scale"] == "value" else None),
+)
+
+# Storage objectives (uses storage inertia settings)
+storage_obj_func = ObjectiveCalculator(
+    metrics=STORAGE_METRICS,
+    inertia_tau=iset["storage"]["tau"],
+    inertia_scale_storage=iset["storage"]["scale"],
+    inertia_storage_scale_value=iset["storage"]["scale_value"],
+)
 
 ### Evaluation function: 
 # function(*vars) -> (objs, constrs)
@@ -104,7 +120,6 @@ def evaluate(*vars):
     """
     
     ### Setup reservoir
-
     reservoir = Reservoir(
         inflow = inflow_obs, # or inflow_scaled or inflow_obs
         dates= datetime,
@@ -114,19 +129,6 @@ def evaluate(*vars):
         initial_storage = initial_storage_obs,
         name = RESERVOIR_NAME,
     )
-    
-     # one-time context print
-    if not hasattr(evaluate, "_printed_ctx"):
-        try:
-            ctx = reservoir.policy.get_context()
-            print(f"[CTX] {RESERVOIR_NAME}: "
-                  f"S_cap={ctx['storage_capacity']:.2f}, "
-                  f"I∈[{ctx['I_min']:.2f},{ctx['I_max']:.2f}], "
-                  f"R∈[{ctx['release_min']:.2f},{ctx['release_max']:.2f}]")
-        except Exception:
-            pass
-        evaluate._printed_ctx = True
-
     reservoir.policy.debug = False
 
     if POLICY_TYPE == 'STARFIT':
@@ -150,9 +152,9 @@ def evaluate(*vars):
     if (reservoir.release_array - avail > 1e-6).any():
         print("[WARN] Release > available water at some steps.")
 
-    summary = reservoir.policy.get_violation_summary()
-    if any(summary.values()):           # only print when something actually happened
-        print("[violations]", summary)
+    # summary = reservoir.policy.get_violation_summary()
+    # if any(summary.values()):           # only print when something actually happened
+    #     print("[violations]", summary)
     
     # Retrieve simulated release data
     sim_release = reservoir.release_array.astype(np.float64)
@@ -190,7 +192,6 @@ borg_settings = {
     "directions": None,  # default is to minimize all objectives. keep this unchanged.
     "seed": borg_seed
 }
-
 
 if __name__ == "__main__":
 

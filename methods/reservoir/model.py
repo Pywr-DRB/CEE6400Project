@@ -177,21 +177,6 @@ class Reservoir():
             # 1) policy target
             release_target = self.get_release(timestep=t)
 
-            # DEBUG: peek at normalization and z
-            if getattr(self.policy, "debug", False) and (t < 5 or t % 30 == 0):
-                prev_S_dbg = self.initial_storage if t == 0 else self.storage_array[t-1]
-                I_dbg = self.inflow_array[t]
-                D_dbg = self.doy[t]
-                Xn = self.policy._normalize(prev_S_dbg, I_dbg, D_dbg)
-                try:
-                    z = self.policy.evaluate(Xn)
-                except Exception:
-                    z = float('nan')
-                print(
-                    f"[DBG] t={t} S={prev_S_dbg:.0f} I={I_dbg:.2f} D={int(D_dbg)} | "
-                    f"S_norm={Xn[0]:.3f} I_norm={Xn[1]:.3f} D_norm={Xn[2]:.3f} -> z={z:.3f}"
-                )
-
             # 2) clamp by availability (correct t=0 handling)
             prev_S = self.initial_storage if t == 0 else self.storage_array[t-1]
             I_t = self.inflow_array[t]

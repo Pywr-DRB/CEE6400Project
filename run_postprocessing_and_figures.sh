@@ -3,7 +3,7 @@
 #SBATCH --output=logs/postprocess.out
 #SBATCH --error=logs/postprocess.err
 #SBATCH --ntasks=1
-#SBTACH --nodes=1
+#SBATCH --nodes=1
 
 # Load Python module
 module load python/3.11.5
