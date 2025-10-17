@@ -36,15 +36,9 @@ RELEASE_METRICS = [
     'Q20_log_neg_nse',      # log NSE on low-flows (Q20)
     'Q80_abs_pbias',        # abs % bias on high-flows (Q80)
     'neg_inertia_release',  # symmetric inertia on release
-    'neg_nse',          # log release NSE   (minimize negative NSE)
-    'Q20_log_neg_nse',      # log NSE on low-flows (Q20)
-    'Q80_abs_pbias',        # abs % bias on high-flows (Q80)
-    'neg_inertia_release',  # symmetric inertia on release
 ]
 
 STORAGE_METRICS = [
-    'neg_kge',              # storage KGE (minimize negative KGE)
-    'neg_inertia_storage',  # symmetric inertia on storage
     'neg_kge',              # storage KGE (minimize negative KGE)
     'neg_inertia_storage',  # symmetric inertia on storage
 ]
@@ -57,20 +51,8 @@ EPSILONS = [0.01, 0.01, 0.02, 0.01, 0.01, 0.01]
 #            rel   Q20   Q80     rel   stor  stor
 #            NSE   log   %bias   inertia KGE  inertia
 #                  NSE
-# Epsilons (tune as you like; these are solid starting points)
-EPSILONS = [0.01, 0.01, 0.02, 0.01, 0.01, 0.01]
-#            ↑     ↑     ↑      ↑     ↑     ↑
-#            rel   Q20   Q80     rel   stor  stor
-#            NSE   log   %bias   inertia KGE  inertia
-#                  NSE
 
 OBJ_LABELS = {
-    "obj1": "Release NSE",
-    "obj2": "Q20 Log Release NSE",
-    "obj3": "Q80 Release Abs % Bias",
-    "obj4": "Release Inertia",
-    "obj5": "Storage KGE",
-    "obj6": "Storage Inertia",
     "obj1": "Release NSE",
     "obj2": "Q20 Log Release NSE",
     "obj3": "Q80 Release Abs % Bias",
@@ -117,7 +99,6 @@ reservoir_options = [
     'beltzvilleCombined',
     'fewalter',
     'prompton',
-    'blueMarsh', 
     'blueMarsh', 
 ]
 
@@ -205,17 +186,10 @@ policy_param_bounds = {
 reservoir_capacity = {
     "prompton": 27956.02,
     "beltzvilleCombined": 48317.0588,   # OBS max 17736.09
-    "beltzvilleCombined": 48317.0588,   # OBS max 17736.09
     "fewalter": 35800.0,
     "blueMarsh": 42320.35,
 }
 
-LOW_STORAGE_FRACTION_BY_RES = {
-    "prompton": 0.035,
-    "fewalter": 0.035,
-    "blueMarsh": 0.1,
-    "beltzvilleCombined": 0.05,
-}
 LOW_STORAGE_FRACTION_BY_RES = {
     "prompton": 0.035,
     "fewalter": 0.035,
@@ -240,10 +214,6 @@ drbc_conservation_releases = {
 
 # Release maxima (MGD) updated from your OBS maxima
 release_max_by_reservoir = {
-    "prompton":           231.60651,  # R_max = 1740.00 × 1.5 = 2610.00
-    "beltzvilleCombined": 969.5,  # R_max = 1440.00 × 1.5 = 2160.00
-    "fewalter":           1292.6,  # R_max = 7690.00 × 1.5 = 11535.00
-    "blueMarsh":          969.5,
     "prompton":           231.60651,  # R_max = 1740.00 × 1.5 = 2610.00
     "beltzvilleCombined": 969.5,  # R_max = 1440.00 × 1.5 = 2160.00
     "fewalter":           1292.6,  # R_max = 7690.00 × 1.5 = 11535.00
@@ -281,7 +251,6 @@ BASE_POLICY_CONTEXT_BY_RESERVOIR = {
         "storage_capacity": _icap(name),
         "x_min": (0.0, _ibounds(name)[0], 1.0),
         "x_max": (_icap(name), _ibounds(name)[1], 366.0),
-        "low_storage_threshold": LOW_STORAGE_FRACTION_BY_RES[name] * _icap(name),
         "low_storage_threshold": LOW_STORAGE_FRACTION_BY_RES[name] * _icap(name),
     }
     for name in reservoir_options
@@ -326,7 +295,6 @@ def get_policy_context(
         S_low = float(low_storage_threshold_override)
     else:
         # keep S_low consistent with possibly overridden capacity
-        S_low = max(0.0, LOW_STORAGE_FRACTION_BY_RES[reservoir_name] * S_cap) if capacity_override is not None else S_low
         S_low = max(0.0, LOW_STORAGE_FRACTION_BY_RES[reservoir_name] * S_cap) if capacity_override is not None else S_low
 
     if not (I_max > I_min):
