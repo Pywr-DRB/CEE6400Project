@@ -1,7 +1,0 @@
-MOEAFramework-5.0 not found. Downloading...
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
-100 14.0M  100 14.0M    0     0  19.6M      0 --:--:-- --:--:-- --:--:-- 19.6M
-Error: CLI at MOEAFramework-5.0/cli is not executable. Run:
-chmod 775 MOEAFramework-5.0/cli

@@ -5,6 +5,8 @@
 #SBATCH --nodes=2
 #SBATCH --ntasks-per-node=40
 #SBATCH --exclusive
+#SBATCH --mail-type=END                    # Send email at job end
+#SBATCH --mail-user=ms3654@cornell.edu     # Email for notifications
 
 # Load Python module
 module load python/3.11.5
@@ -12,7 +14,7 @@ module load python/3.11.5
 # Activate Python virtual environment #change based on your directory
 source /home/fs02/pmr82_0001/ms3654/envs/borg-env/bin/activate
 
-# ---- keep each MPI rank single-threaded (BIGGEST win, not MPI config) --------
+# ---- keep each MPI rank single-threaded --------
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1

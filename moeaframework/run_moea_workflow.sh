@@ -1,48 +1,76 @@
-#!/usr/bin/env bash
-set -e
+#!/bin/bash
+#SBATCH --job-name=MOEAMulti
+#SBATCH --output=./logs/MOEAMulti.out
+#SBATCH --error=./logs/MOEAMulti.err
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=40
+#SBATCH --exclusive
+#SBATCH --mail-type=END
+#SBATCH --mail-user=ms3654@cornell.edu
 
-# Get the absolute path to the directory where this script lives
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+set -euo pipefail
 
-EPSILON="0.01,0.01,0.01,0.01"
-POLICIES=("STARFIT" "RBF" "PW:")
-RESERVOIRS=("beltzvilleCombined" "fewalter" "prompton")
+# Always operate from the directory where you ran `sbatch`.
+mkdir -p logs
+cd "$SLURM_SUBMIT_DIR"
 
-# Define the number of DVs per policy (used by step 3)
-declare -A NUM_DVS
-NUM_DVS["STARFIT"]=17
-NUM_DVS["RBF"]=14
-NUM_DVS["PWL"]=15
+SCRIPT_DIR="$SLURM_SUBMIT_DIR"   # project root
 
-# Fixed number of objectives
-NUM_OBJS=4
-export NUM_DVS NUM_OBJS  # step 3 reads these
+# ===== Config =====
+export EPSILON="0.01,0.01,0.02,0.01,0.01,0.01"
+POLICIES=("STARFIT" "RBF" "PWL")
+RESERVOIRS=("beltzvilleCombined" "fewalter" "prompton" "blueMarsh")
+declare -A NUM_DVS=( ["STARFIT"]=17 ["RBF"]=14 ["PWL"]=15 )
+export NUM_OBJS=6
+export OUT_ROOT="outputs"
 
-for POLICY in "${POLICIES[@]}"; do
-  echo "Running diagnostics for policy: $POLICY"
-  RUNTIME_DIR="outputs/Policy_${POLICY}/runtime"
+export SEED_FROM="${SEED_FROM:-1}"
+export SEED_TO="${SEED_TO:-10}"
 
-  for RES in "${RESERVOIRS[@]}"; do
-    DIR="${RUNTIME_DIR}/${RES}"
-    if [ ! -d "$DIR" ]; then
-      echo "Skipping missing directory: $DIR"
-      continue
-    fi
+# ===== CLI autodetect / override =====
+CLI_ARG="${1:-}"
+if [[ "$CLI_ARG" == "--cli" ]]; then
+  CLI="${2:?usage: $0 [--cli /path/to/cli]}"; shift 2
+else
+  if   [[ -x "$SCRIPT_DIR/cli" ]]; then CLI="$SCRIPT_DIR/cli"
+  elif [[ -x "$SCRIPT_DIR/MOEAFramework-5.0/cli" ]]; then CLI="$SCRIPT_DIR/MOEAFramework-5.0/cli"
+  elif [[ -x "$SCRIPT_DIR/../MOEAFramework-5.0/cli" ]]; then CLI="$SCRIPT_DIR/../MOEAFramework-5.0/cli"
+  else
+    echo "ERROR: MOEAFramework cli not found. Pass --cli /path/to/cli" >&2
+    exit 1
+  fi
+fi
+[[ -x "$CLI" ]] || { echo "ERROR: CLI not executable: $CLI (chmod +x)"; exit 1; }
+command -v python3 >/dev/null 2>&1 || { echo "ERROR: python3 not found in PATH"; exit 1; }
 
-    echo "Processing: $POLICY – $RES"
-    cd "$DIR"
+echo "== MOEA Workflow (flat layout) =="
+echo "PWD       : $PWD"
+echo "CLI       : $CLI"
+echo "OUT_ROOT  : $OUT_ROOT"
+echo "EPSILON   : $EPSILON"
+echo "NUM_OBJS  : $NUM_OBJS"
+echo "SEEDS     : ${SEED_FROM}-${SEED_TO}"
+echo "Policies  : ${POLICIES[*]}"
+echo "Reservoirs: ${RESERVOIRS[*]}"
+echo
 
-    # Step 1: runtime -> refsets/*.set (with header)
-    bash "$SCRIPT_DIR/1-moeaframework_merge_files.sh" "$EPSILON"
+# ===== Steps =====
+echo ">> [1/4] runtime -> set"
+bash "$SCRIPT_DIR/1-moeaframework_merge_files.sh" --cli "$CLI"
+echo
 
-    # Step 2: merge per-seed -> seed*.ref; then union -> borg.ref
-    bash "$SCRIPT_DIR/2-moeaframework_gen_refset.sh" "$EPSILON"
+echo ">> [2/4] append header -> *_header.set"
+python3 "$SCRIPT_DIR/append_header.py" --outputs-root "$OUT_ROOT" --seed-from "$SEED_FROM" --seed-to "$SEED_TO"
+echo
 
-    # Step 3: evaluate metrics vs borg.ref
-    bash "$SCRIPT_DIR/3-moeaframework_gen_runtime.sh" "$EPSILON"
+echo ">> [3/4] merge *_header.set -> <reservoir>.ref"
+EPSILON="$EPSILON" DIMENSION="$NUM_OBJS" SEED_FROM="$SEED_FROM" SEED_TO="$SEED_TO" \
+  bash "$SCRIPT_DIR/2-moeaframework_gen_refset.sh" --cli "$CLI"
+echo
 
-    cd - > /dev/null
-  done
-done
+echo ">> [4/4] metrics vs <reservoir>.ref"
+EPSILON="$EPSILON" SEED_FROM="$SEED_FROM" SEED_TO="$SEED_TO" \
+  bash "$SCRIPT_DIR/3-moeaframework_gen_runtime.sh" --cli "$CLI"
+echo
 
-echo "MOEA diagnostics complete for all policies and reservoirs."
+echo "== Done =="
