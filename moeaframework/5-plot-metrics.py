@@ -29,7 +29,7 @@ colors_line = ['crimson', 'teal', 'royalblue', 'deeppink', 'forestgreen'] * 2
 for policy in policies:
     for metric_name in metrics:
         for reservoir in reservoirs:
-            folder = f'outputs/Policy_{policy}/runtime/{reservoir}'
+            folder = f'outputs/Policy_{policy}/metrics/{reservoir}'
             if not os.path.isdir(folder):
                 print(f"Skipping missing folder: {folder}")
                 continue
@@ -46,7 +46,7 @@ for policy in policies:
                 metric_matrix = np.zeros((num_masters, num_output), dtype=float)
 
                 for m in range(num_masters):
-                    filename = f'{folder}/MMBorg_4M_{policy}_{reservoir}_nfe{nfe}_seed{seed}_{m}.metrics'
+                    filename = f'{folder}/MMBorg_4M_{policy}_{reservoir}_nfe{nfe}_seed{seed}_{m}_header.metric'
                     if not os.path.exists(filename):
                         print(f"Missing: {filename}")
                         continue
@@ -100,7 +100,7 @@ metrics = [
     'EpsilonIndicator'
 ]
 policies   = ['STARFIT', 'RBF', 'PWL']
-reservoirs = ['beltzvilleCombined', 'fewalter', 'prompton']
+reservoirs = ['beltzvilleCombined', 'fewalter', 'prompton', 'blueMarsh']
 nfe  = 30000
 freq = 250
 seeds = range(1, 11)              # 1..10
