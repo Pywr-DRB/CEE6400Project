@@ -101,6 +101,7 @@ release_obj_func = ObjectiveCalculator(
 # Storage objectives (uses storage inertia settings)
 storage_obj_func = ObjectiveCalculator(
     metrics=STORAGE_METRICS,
+    capacity_mg=reservoir_capacity[RESERVOIR_NAME], 
     inertia_tau=iset["storage"]["tau"],
     inertia_scale_storage=iset["storage"]["scale"],
     inertia_storage_scale_value=iset["storage"]["scale_value"],

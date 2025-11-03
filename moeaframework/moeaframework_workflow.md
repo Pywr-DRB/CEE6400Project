@@ -61,13 +61,13 @@ bash postprocess_to_moea.sh
 # From MOEAFramework-5.0/
 
 # PWL (15 vars, 6 objs, 0 constraints)
-./cli BuildProblem   --problemName PWL_Custom   --language python   --numberOfVariables 15   --numberOfObjectives 6   --numberOfConstraints 0   --lowerBound -1e6   --upperBound  1e6
+./cli BuildProblem   --problemName PWL_Custom   --language python   --numberOfVariables 15   --numberOfObjectives 4   --numberOfConstraints 0   --lowerBound -1e6   --upperBound  1e6
 
 # STARFIT (17 vars, 6 objs, 1 constraint)
-./cli BuildProblem   --problemName STARFIT_Custom   --language python   --numberOfVariables 17   --numberOfObjectives 6   --numberOfConstraints 1   --lowerBound -1e6   --upperBound  1e6
+./cli BuildProblem   --problemName STARFIT_Custom   --language python   --numberOfVariables 17   --numberOfObjectives 4   --numberOfConstraints 1   --lowerBound -1e6   --upperBound  1e6
 
 # RBF (14 vars, 6 objs, 0 constraints)
-./cli BuildProblem   --problemName RBF_Custom   --language python   --numberOfVariables 14   --numberOfObjectives 6   --numberOfConstraints 0   --lowerBound -1e6   --upperBound  1e6
+./cli BuildProblem   --problemName RBF_Custom   --language python   --numberOfVariables 14   --numberOfObjectives 4   --numberOfConstraints 0   --lowerBound -1e6   --upperBound  1e6
 ```
 
 Build and expose the jar(s):

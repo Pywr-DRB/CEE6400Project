@@ -1,51 +1,61 @@
 #!/usr/bin/env bash
-# Step 1: Convert *.runtime -> *.set per policy/reservoir (seed-filtered).
-set -euo pipefail
+# Converts each *.runtime file to a corresponding *.set file.
+# We do this to build references (the .set snapshots are used purely for ref construction).
+# The time-series metrics will be computed from *.runtime later.
 
-CLI_ARG="${1:-}"
+set -euo pipefail           # strict mode
+shopt -s nullglob           # globs that match nothing expand to empty (no literal *)
+
+# ===== CLI autodetect / override =====
+CLI_ARG="${1:-}"            # read optional arg
 if [[ "$CLI_ARG" == "--cli" ]]; then
-  CLI="${2:?usage: $0 [--cli /path/to/cli]}"; shift 2
+  CLI="${2:?usage: $0 [--cli /path/to/cli]}"; shift 2  # external override
 else
-  SCRIPT_DIR="$(cd -- "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-  if   [[ -x "$SCRIPT_DIR/cli" ]]; then CLI="$SCRIPT_DIR/cli"
-  elif [[ -x "$SCRIPT_DIR/MOEAFramework-5.0/cli" ]]; then CLI="$SCRIPT_DIR/MOEAFramework-5.0/cli"
-  elif [[ -x "$SCRIPT_DIR/../MOEAFramework-5.0/cli" ]]; then CLI="$SCRIPT_DIR/../MOEAFramework-5.0/cli"
+  # try common locations
+  if   [[ -x "./cli" ]]; then CLI="./cli"
+  elif [[ -x "./MOEAFramework-5.0/cli" ]]; then CLI="./MOEAFramework-5.0/cli"
+  elif [[ -x "../MOEAFramework-5.0/cli" ]]; then CLI="../MOEAFramework-5.0/cli"
   else echo "ERROR: MOEAFramework cli not found. Pass --cli /path/to/cli" >&2; exit 1; fi
 fi
 [[ -x "$CLI" ]] || { echo "ERROR: $CLI not executable (chmod +x)"; exit 1; }
 
-OUT_ROOT="outputs"
-SEED_FROM="${SEED_FROM:-1}"
-SEED_TO="${SEED_TO:-10}"
+# ===== Bounds/filters =====
+OUT_ROOT="${OUT_ROOT:-outputs}"       # root folder with Policy_* dirs
+SEED_FROM="${SEED_FROM:-1}"           # inclusive seed lower bound
+SEED_TO="${SEED_TO:-10}"              # inclusive seed upper bound
 
-echo ">> Using CLI: $CLI"
-echo ">> Converting runtime -> set (seeds ${SEED_FROM}-${SEED_TO})..."
+echo ">> [1/4] runtime -> set  (seeds ${SEED_FROM}-${SEED_TO})"
 
-shopt -s nullglob
+# Iterate over every policy directory under OUT_ROOT
 for policy_dir in "${OUT_ROOT}"/Policy_*; do
-  [[ -d "$policy_dir/runtime" ]] || continue
+  [[ -d "$policy_dir/runtime" ]] || continue            # skip if no runtime directory
   echo ">> Policy: $(basename "$policy_dir")"
-  for reservoir_dir in "${policy_dir}/runtime"/*/; do
-    reservoir="$(basename "$reservoir_dir")"
-    out_dir="${policy_dir}/refsets/${reservoir}"
+
+  # For each reservoir (runtime/<reservoir>/ has the .runtime files)
+  for rdir in "$policy_dir/runtime"/*/; do
+    [[ -d "$rdir" ]] || continue
+    reservoir="$(basename "$rdir")"                     # reservoir name
+    out_dir="$policy_dir/refsets/$reservoir"            # where we put the converted .set files
     mkdir -p "$out_dir"
-    echo "   - Reservoir: ${reservoir}"
-    for runtime_file in "${reservoir_dir}"/*.runtime; do
-      base="$(basename "${runtime_file}" .runtime)"
-      # Parse seed number from filename (expects ..._seed<NUM>_...)
-      if [[ "$base" =~ _seed([0-9]+)([_.]|$) ]]; then
-        seed="${BASH_REMATCH[1]}"
-        if (( seed < SEED_FROM || seed > SEED_TO )); then
-          continue
-        fi
+    echo "   - Reservoir: $reservoir"
+
+    # For every .runtime file in this reservoir
+    for runtime in "$rdir"/*.runtime; do
+      base="$(basename "$runtime" .runtime)"            # strip .runtime
+      # Expect filenames like ..._seed<seed>_<island>.runtime
+      if [[ "$base" =~ _seed([0-9]+)_([0-9]+)$ ]]; then
+        seed="${BASH_REMATCH[1]}"                       # captured <seed>
+        island="${BASH_REMATCH[2]}"                     # captured <island> (not currently used here)
+        (( seed < SEED_FROM || seed > SEED_TO )) && continue  # filter seeds not in window
       else
-        # If no seed tag, skip (or remove this 'continue' to include)
+        # If filename doesn't include both seed and island tags, skip strictly
         continue
       fi
-      out_file="${out_dir}/${base}.set"
-      echo "     * ${base}.runtime -> ${base}.set"
-      "$CLI" ResultFileConverter --input "${runtime_file}" --output "${out_file}"
+      out_set="$out_dir/${base}.set"                    # parallel .set path
+      echo "     * $(basename "$runtime") -> $(basename "$out_set")"
+      "$CLI" ResultFileConverter --input "$runtime" --output "$out_set"   # convert to .set
     done
   done
 done
+
 echo ">> Done."
