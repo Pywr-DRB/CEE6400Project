@@ -17,7 +17,7 @@ cd "$SLURM_SUBMIT_DIR"
 SCRIPT_DIR="$SLURM_SUBMIT_DIR"   # project root
 
 # ===== Config =====
-export EPSILON="0.01,0.01,0.02,0.01,0.01,0.01"
+export EPSILON="0.01,0.01,0.01,0.01"
 POLICIES=("STARFIT" "RBF" "PWL")
 RESERVOIRS=("beltzvilleCombined" "fewalter" "prompton" "blueMarsh")
 declare -A NUM_DVS=( ["STARFIT"]=17 ["RBF"]=14 ["PWL"]=15 )
@@ -26,6 +26,10 @@ export OUT_ROOT="outputs"
 
 export SEED_FROM="${SEED_FROM:-1}"
 export SEED_TO="${SEED_TO:-10}"
+
+# Optional filters (uncomment to limit scope)
+# export POLICIES_FILTER="Policy_*"                            # Glob for policy dirs under OUT_ROOT
+# export RESERVOIRS_FILTER="*"                                 # Glob for reservoirs under runtime/refsets
 
 # ===== CLI autodetect / override =====
 CLI_ARG="${1:-}"
