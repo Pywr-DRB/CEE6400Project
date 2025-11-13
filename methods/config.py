@@ -31,46 +31,52 @@ ACRE_FEET_TO_MG = ACRE_FEET_TO_MG  # Acre-feet to million gallons
 NFE = 30000
 ISLANDS = 4
 
+# === Objectives ===============================================================
 RELEASE_METRICS = [
-    'neg_nse',          # log release NSE   (minimize negative NSE)
-    'Q20_log_neg_nse',      # log NSE on low-flows (Q20)
-    'Q80_abs_pbias',        # abs % bias on high-flows (Q80)
-    'neg_inertia_release',  # symmetric inertia on release
+    "neg_nse",          # release shape/timing (minimize -NSE)
+    "Q20_abs_pbias",    # Low flow release percent bias
 ]
 
 STORAGE_METRICS = [
-    'neg_kge',              # storage KGE (minimize negative KGE)
-    'neg_inertia_storage',  # symmetric inertia on storage
+    "neg_nse",          # storage shape/timing/variance/bias (minimize -KGE)
+    "Q80_abs_pbias",    # High flow storage percent bias
 ]
 
 METRICS = RELEASE_METRICS + STORAGE_METRICS
 
-# Epsilons (tune as you like; these are solid starting points)
-EPSILONS = [0.01, 0.01, 0.02, 0.01, 0.01, 0.01]
-#            ↑     ↑     ↑      ↑     ↑     ↑
-#            rel   Q20   Q80     rel   stor  stor
-#            NSE   log   %bias   inertia KGE  inertia
-#                  NSE
+# Epsilons must match #objectives (here: 4)
+EPSILONS = [0.01, 0.01, 0.01, 0.01]
 
 OBJ_LABELS = {
     "obj1": "Release NSE",
-    "obj2": "Q20 Log Release NSE",
-    "obj3": "Q80 Release Abs % Bias",
-    "obj4": "Release Inertia",
-    "obj5": "Storage KGE",
-    "obj6": "Storage Inertia",
+    "obj2": "Q20 Abs % Bias (Release)",
+    "obj3": "Storage NSE",
+    "obj4": "Q80 Abs % Bias (Storage)",
 }
 
-# Used to filter pareto front
-# obj : (min, max)
 OBJ_FILTER_BOUNDS = {
-    "Release NSE": (0, 1.0),
-    "Q20 Log Release NSE": (-1, 1.0),
-    "Q80 Release Abs % Bias": (0, 50.0),
-    "Release Inertia": (0.3, 1.0),
-    "Storage KGE": (-3, 1.0),            
-    "Storage Inertia": (0.2, 1.0),
+    "Release NSE": (-1.0, 1.0),
+    "Q20 Abs % Bias (Release)": (0.0, 50.0),
+    "Storage NSE": (-1.0, 1.0),
+    "Q80 Abs % Bias (Storage)": (0.0, 50.0),
 }
+
+# === Objective senses & baseline aliases (needed by selection/plotting) ======
+SENSES_ALL = {
+    "Release NSE": "max",
+    "Q20 Abs % Bias (Release)": "min",
+    "Storage E": "max",
+    "Q80 Abs % Bias (Storage)": "min",
+}
+
+BASELINE_ALIASES = {
+    "Release NSE":              "neg_nse",                 # your baseline CSV keys
+    "Q20 Abs % Bias (Release)": "Q20_abs_pbias",
+    "Storage NSE":              "neg_nse",
+    "Q80 Abs % Bias (Storage)": "Q80_abs_pbias",
+}
+
+BASELINE_VALUE_COL = "pywr_baseline"
 
 # Symmetric inertia settings by reservoir (release + storage)
 # scale ∈ {"range","max","value"}; for "value", provide scale_value (S0)
@@ -110,6 +116,13 @@ policy_type_options = [
     "PWL",
 ]
 
+# === Baseline/validation settings used by plotting ===
+BASELINE_DIR_NAME   = "baseline_pywr"   # subfolder under FIG_DIR that holds baseline CSVs
+BASELINE_INFLOW_TAG = "inflow_pub"      # which inflow series name the baseline used
+VAL_START           = "2019-01-01"      # validation window (string or pandas-parseable)
+VAL_END             = "2024-12-31"
+
+
 ## RBF
 n_rbfs = 2              # Number of radial basis functions (RBFs) used in the policy
 n_rbf_inputs = 3         # Number of input variables (inflow, storage, day_of_year)
@@ -127,13 +140,13 @@ n_starfit_inputs = 3         # Number of input variables (inflow, storage, week_
 #Starfit parameter bounds
 starfit_param_bounds = [
     [0.0, 100.0],         # NORhi_mu
-    [0, 79.24],         # NORhi_min
-    [0.07, 100],        # NORhi_max
+    [0, 100.0],         # NORhi_min
+    [0.07, 100.0],        # NORhi_max
     [-10.95, 79.63],      # NORhi_alpha
     [-44.29, 5.21],       # NORhi_beta
 
-    [0.0, 100],         # NORlo_mu
-    [0.0, 100],         # NORlo_min
+    [0.0, 100.0],         # NORlo_mu
+    [0.0, 100.0],         # NORlo_min
     [1.76, 100.0],        # NORlo_max
     [-14.41, 11.16],      # NORlo_alpha
     [-45.21, 5.72],       # NORlo_beta
@@ -148,23 +161,41 @@ starfit_param_bounds = [
     [0.0, 0.957],         # Release_p2
 ]
 
-## Piecewise Linear
-n_segments = 3         # linear segments 
-n_pwl_inputs = 3         # Number of input variables (inflow, storage, week_of_year)
-n_pwl_params = (2 * n_segments - 1) * n_pwl_inputs   # n_params =  (2 * n_segments - 1) * n_predictors
+# ---------------- Piecewise Linear (PWL) ----------------
+# Each input block uses: [x1..x_{M-1}, theta1..thetaM]
+# - x_i are internal breakpoints in (0, 1), enforced strictly increasing in the policy code.
+# - theta_j are line angles (radians) converted to slopes via tan(theta_j).
+#   Using a moderate angle range avoids extreme slopes.
 
-# param order = [segment_breakpoints, slopes] 
-# Segment breakpoints (x_i) in [0.0, 1.0]
-# Segment slopes (θ_i) in [0.0, π/3]
-single_input_pwl_param_bounds = [
-    [[i/(n_segments-1), (i+1)/(n_segments-1)] for i in range(n_segments-1)] +
-    [[-np.pi/2, np.pi/2]] * n_segments  
-][0]
 
-# repeat parameter bounds for each input
-pwl_param_bounds = []
-for _ in range(n_pwl_inputs):
-    pwl_param_bounds += single_input_pwl_param_bounds
+def make_pwl_bounds(n_segments: int, n_inputs: int, *, eps: float = 1e-3):
+    """Return (n_params, bounds) for PWL with M segments and I inputs."""
+    per_block = 2 * n_segments - 1
+    n_params  = per_block * n_inputs
+    # Breakpoints in (eps, 1-eps); ANGLES kept safely away from ±pi/2
+    bounds_one = (
+        [[eps, 1.0 - eps]] * (n_segments - 1) +     # x1..x_{M-1}
+        [[-np.pi/3, np.pi/3]] * n_segments          # theta1..thetaM  (SAFE)
+    )
+    bounds = []
+    for _ in range(n_inputs):
+        bounds += bounds_one
+    return n_params, bounds
+
+# Wire it in
+n_segments     = 3
+n_pwl_inputs   = 3
+n_pwl_params, pwl_param_bounds = make_pwl_bounds(n_segments, n_pwl_inputs)
+
+# --- Keep the legacy for reference (but commented) ---
+# single_input_pwl_param_bounds = [
+#     [[i/(n_segments-1), (i+1)/(n_segments-1)] for i in range(n_segments-1)] +
+#     [[-np.pi/2, np.pi/2]] * n_segments
+# ][0]
+# pwl_param_bounds = []
+# for _ in range(n_pwl_inputs):
+#     pwl_param_bounds += single_input_pwl_param_bounds
+
 
 ## Dictionaries of configurations
 policy_n_params = {
@@ -185,24 +216,50 @@ policy_param_bounds = {
 # NOTE: For Beltzville, OBS storage max is 17,736 MG while we currently use 13,500 MG (crest).
 reservoir_capacity = {
     "prompton": 27956.02,
-    "beltzvilleCombined": 48317.0588,   # OBS max 17736.09
+    "beltzvilleCombined": 13500.0, #48317.0588,   # OBS max 17736.09
     "fewalter": 35800.0,
     "blueMarsh": 42320.35,
 }
 
+### Low Storage (Deadpool) Fractions ###########################################
+# Fractions are computed as (dead storage / total capacity).
+# All cited from USGS NWIS "REMARKS" sections unless noted otherwise.
+# These represent the approximate inactive (dead) storage proportions.
+#
+# ┌──────────────────────┬──────────────┬────────────────────────────┬────────────────────────────────────────────────────────────────────┐
+# │ Reservoir            │ Dead Storage │ Fraction of Capacity (≈)   │ Primary Citation                                                   │
+# ├──────────────────────┼──────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+# │ Blue Marsh Lake      │ 2,560 ac-ft  │ 0.00192                    │ USGS WYS 01470870 “Blue Marsh Lake near Bernville, PA.”           │
+# │                      │              │                            │ Records Oct 2010–present: “Dead storage is 2,560 acre-ft.”         │
+# │                      │              │                            │ https://waterdata.usgs.gov/nwis/uv?site_no=01470870&legacy=1       │
+# ├──────────────────────┼──────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+# │ Beltzville Lake      │ 1,390 ac-ft  │ 0.00106                    │ USGS NWIS 01449790 “Beltzville Lake near Parryville, PA.”         │
+# │                      │              │                            │ “Dead storage is 1,390 acre-ft.”                                   │
+# │                      │              │                            │ https://waterdata.usgs.gov/nwis/uv?site_no=01449790&legacy=1       │
+# ├──────────────────────┼──────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+# │ F.E. Walter Reservoir│ 2,000 ac-ft  │ 0.00159                    │ USGS NWIS 01447780 “Francis E. Walter Reservoir near White Haven.”│
+# │                      │              │                            │ “Dead storage is 2,000 acre-ft.”                                   │
+# │                      │              │                            │ https://waterdata.usgs.gov/nwis/uv?site_no=01447780&legacy=1       │
+# ├──────────────────────┼──────────────┼────────────────────────────┼────────────────────────────────────────────────────────────────────┤
+# │ Prompton Reservoir   │ —            │ 0.035 (fallback)           │ USGS 01428900 lists minimum conservation pool 3,420 ac-ft at elev 1125 ft │
+# │                      │              │                            │ but no explicit “dead storage” value.                              │
+# │                      │              │                            │ https://waterdata.usgs.gov/nwis/uv?site_no=01428900&legacy=1       │
+# └──────────────────────┴──────────────┴────────────────────────────┴────────────────────────────────────────────────────────────────────┘
+
 LOW_STORAGE_FRACTION_BY_RES = {
-    "prompton": 0.035,
-    "fewalter": 0.035,
-    "blueMarsh": 0.1,
-    "beltzvilleCombined": 0.05,
+    "blueMarsh": 0.00192,
+    "beltzvilleCombined": 0.00106,
+    "fewalter": 0.00159,
+    "prompton": 0.0,   # fallback (no published deadpool)
 }
+
 
 # Inflow bounds used for normalization (MGD)
 inflow_bounds_by_reservoir = {
     "prompton":           {"I_min": 0.0, "I_max": 7500.00},   # I_max = 1740.00 × 1.5 = 2610.00
     "beltzvilleCombined": {"I_min": 0.0, "I_max": 3002.50},   # I_max = 1440.00 × 1.5 = 2160.00
     "fewalter":           {"I_min": 0.0, "I_max": 20000.00},  # I_max = 7690.00 × 1.5 = 11535.00
-    "blueMarsh": {"I_min": 0.0, "I_max": 7500.00},  # keep if/when ready
+    "blueMarsh": {"I_min": 0.0, "I_max": 7500.00},  
 }
 
 # Conservation minimums (MGD) from DRBC Water Code
@@ -214,15 +271,15 @@ drbc_conservation_releases = {
 
 # Release maxima (MGD) updated from your OBS maxima
 release_max_by_reservoir = {
-    "prompton":           231.60651,  # R_max = 1740.00 × 1.5 = 2610.00
+    "prompton":           2610.00,  # R_max = 1740.00 × 1.5 = 2610.00, 231.60651
     "beltzvilleCombined": 969.5,  # R_max = 1440.00 × 1.5 = 2160.00
-    "fewalter":           1292.6,  # R_max = 7690.00 × 1.5 = 11535.00
+    "fewalter":           11535.00,  # R_max = 7690.00 × 1.5 = 11535.00, 1292.6
     "blueMarsh":          969.5,
 }
 
 # promton observed minimum reported (~5.75 MGD).
 release_min_by_reservoir = {
-    "prompton": 5.75,  # from CTX print
+    "prompton": 0.0,  # from CTX print
 }
 
 # --- Build BASE_POLICY_CONTEXT directly from the dicts above ---
@@ -313,3 +370,23 @@ def get_policy_context(
 
 # Optional: precompute
 POLICY_CONTEXT_BY_RESERVOIR = {r: get_policy_context(r) for r in reservoir_options}
+
+
+
+def parse_params_inline(policy_type: str, params: str | list[float]) -> list[float]:
+    """Accepts comma-separated string or list of floats."""
+    if params is None:
+        raise ValueError("parse_params_inline: 'params' is None.")
+    if isinstance(params, str):
+        # allow whitespace, mixed commas
+        vec = [float(x.strip()) for x in params.replace("，", ",").split(",") if x.strip() != ""]
+    elif isinstance(params, (list, tuple)):
+        vec = [float(x) for x in params]
+    else:
+        raise TypeError(f"Unsupported params type: {type(params)}")
+
+    # optional: quick length checks to fail fast (kept permissive if you change bounds later
+    expected = policy_n_params.get(policy_type)
+    if expected is not None and len(vec) != expected:
+        raise ValueError(f"{policy_type} expects {expected} params; got {len(vec)}.")
+    return vec

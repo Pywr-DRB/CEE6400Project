@@ -70,7 +70,7 @@ from methods.plotting.plot_release_storage_9panel import plot_release_storage_9p
 # Optional: per-reservoir “policy range” figure generator
 from methods.plotting.plot_bounds_tables import make_reservoir_visual
 
-
+DISABLE_BASELINE_FILTER = True  # set False to re-enable
 # ------------------------------- helpers -------------------------------------
 
 def _obj_cols() -> List[str]:
@@ -160,12 +160,17 @@ def main():
                 continue
 
             # If a baseline metrics table exists, optionally filter vs baseline; otherwise, keep as-is.
-            if baselines[res] is not None:
+            # if baselines[res] is not None:
+            #     try:
+            #         obj_df = filter_better_than_baseline(obj_df, baselines[res], margin=0.0)
+            #     except Exception as e:
+            #         print(f"[INFO] Baseline filter skipped for {res}/{pol}: {e}")
+            # If a baseline exists AND we're not disabling, filter; else keep everything.
+            if (not DISABLE_BASELINE_FILTER) and (baselines[res] is not None):
                 try:
                     obj_df = filter_better_than_baseline(obj_df, baselines[res], margin=0.0)
                 except Exception as e:
                     print(f"[INFO] Baseline filter skipped for {res}/{pol}: {e}")
-
             if obj_df.empty:
                 print(f"[INFO] After filter, none left for {res}/{pol}.")
                 continue
@@ -228,7 +233,7 @@ def main():
         try:
             plot_pareto_front_comparison(
                 obj_dfs, labels,
-                obj_cols=["Release NSE", "Storage KGE"],
+                obj_cols=["Release NSE", "Storage NSE"],
                 ideal=[1.0, 1.0],
                 title=f"Pareto Front Comparison – {reservoir}",
                 fname=str(fname)

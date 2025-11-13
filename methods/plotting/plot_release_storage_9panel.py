@@ -1,251 +1,344 @@
 #!/usr/bin/env python3
-# methods/plotting/plot_release_storage_9panel.py
-
 from __future__ import annotations
-import os
 from pathlib import Path
-from typing import Tuple
-
+from typing import Tuple, Optional
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-
+from matplotlib.dates import AutoDateLocator, ConciseDateFormatter
 from methods.config import reservoir_capacity
 
+# ===== Fixed palette & styles for consistency across all panels =====
+PALETTE = {
+    "sim": "#17becf",          # cyan-ish (not blue)
+    "obs": "k",                # black
+    "pywr_param": "#ff7f0e",   # orange
+    "pywr_default": "#2ca02c", # green
+    "nor": "0.45",             # mid-gray
+}
+LW = {  # line widths
+    "sim": 0.8,
+    "obs": 0.9,
+    "pywr_param": 0.7,
+    "pywr_default": 0.7,
+    "nor": 0.8,
+}
+ALPHA = {  # opacities
+    "sim": 1.0,
+    "obs": 0.95,
+    "pywr_param": 0.95,
+    "pywr_default": 0.95,
+    "nor": 1.0,
+}
+MS = 3  # marker size for monthly/annual points
 
 # ---------- helpers ----------
-def to_percent_storage(storage_series: pd.Series, reservoir: str) -> pd.Series:
-    """Convert MG storage to % of capacity for the given reservoir."""
+def to_percent_storage(s: pd.Series, reservoir: str) -> pd.Series:
     cap = float(reservoir_capacity[reservoir])
-    s = pd.to_numeric(storage_series, errors="coerce")
-    return 100.0 * (s / cap)
-
+    return 100.0 * (pd.to_numeric(s, errors="coerce") / cap)
 
 def _fdc(series: pd.Series) -> Tuple[np.ndarray, np.ndarray]:
-    """Return exceedance (%) and sorted values (desc) for an FDC. Drop NaN/inf; ignore <=0 for log axes."""
     s = pd.Series(series, dtype=float).replace([np.inf, -np.inf], np.nan).dropna()
-    if s.empty:
-        return np.array([]), np.array([])
+    if s.empty: return np.array([]), np.array([])
     vals = np.sort(s.values)[::-1]
     p = np.linspace(0, 100, len(vals))
     return p, vals
 
-
-def _safe_monthly_means(s: pd.Series) -> pd.Series:
-    """Monthly means with calendar month index 1..12 (handles missing months)."""
-    if s is None or s.empty:
-        return pd.Series(index=range(1, 13), dtype=float)
-    m = s.resample("ME").mean()
-    mg = m.groupby(m.index.month).mean()
-    # ensure all 12 months show, even if NaN
-    out = pd.Series(index=range(1, 13), dtype=float)
-    out.loc[mg.index] = mg.values
-    return out
-
-
-def _safe_annual_means(s: pd.Series) -> pd.Series:
-    if s is None or s.empty:
-        return pd.Series(dtype=float)
-    y = s.resample("YE").mean()
-    # make the x-axis integer years
-    y.index = y.index.year
-    return y
-
-
 def _fdc_positive(series: pd.Series) -> Tuple[np.ndarray, np.ndarray]:
-    """FDC using only positive values (friendlier for log y)."""
-    p, v = _fdc(series)
-    keep = v > 0
+    p, v = _fdc(series); keep = v > 0
     return p[keep], v[keep]
 
+def _safe_monthly_means(s: Optional[pd.Series]) -> pd.Series:
+    if s is None or s.empty:
+        return pd.Series(index=range(1,13), dtype=float)
+    m = s.resample("ME").mean()
+    mg = m.groupby(m.index.month).mean()
+    out = pd.Series(index=range(1,13), dtype=float); out.loc[mg.index] = mg.values
+    return out
+
+def _safe_annual_means(s: Optional[pd.Series]) -> pd.Series:
+    if s is None or s.empty: return pd.Series(dtype=float)
+    y = s.resample("YE").mean(); y.index = y.index.year
+    return y
+
+def _nice_datetime_axis(ax):
+    loc = AutoDateLocator(minticks=4, maxticks=8)
+    ax.xaxis.set_major_locator(loc)
+    ax.xaxis.set_major_formatter(ConciseDateFormatter(loc))
+    for label in ax.get_xticklabels():
+        label.set_rotation(0)
 
 # ---------- main ----------
 def plot_release_storage_9panel(
+    *,
     reservoir: str,
-    sim_release: pd.Series,              # DatetimeIndex, MGD
-    obs_release: pd.Series | None,       # DatetimeIndex, MGD (optional)
-    sim_storage_MG: pd.Series,           # DatetimeIndex, MG
-    obs_storage_MG: pd.Series | None,    # DatetimeIndex, MG (optional)
-    start: str, end: str,
+    # independent sim (required)
+    sim_release: pd.Series,            # DatetimeIndex, MGD
+    sim_storage_MG: pd.Series,         # DatetimeIndex, MG
+    # observations (optional)
+    obs_release: Optional[pd.Series] = None,
+    obs_storage_MG: Optional[pd.Series] = None,
+    # optional overlays from Pywr runs
+    pywr_param_release: Optional[pd.Series] = None,
+    pywr_param_storage_MG: Optional[pd.Series] = None,
+    pywr_default_release: Optional[pd.Series] = None,
+    pywr_default_storage_MG: Optional[pd.Series] = None,
+    # optional NOR bands (% capacity; aligned to DatetimeIndex)
+    nor_lo_pct: Optional[pd.Series] = None,
+    nor_hi_pct: Optional[pd.Series] = None,
+    # labels / window
+    start: str = None,
+    end: str = None,
     ylabel: str = "Flow (MGD)",
     storage_ylabel: str = "Storage (% cap)",
-    save_path: str | None = None,
+    policy_label: Optional[str] = None,
+    pick_label: Optional[str] = None,
+    save_path: Optional[str] = None,
 ):
-    """
-    3×3 diagnostic: rows = {daily, monthly mean, annual mean};
-    cols = {storage, release, FDC (release)}. Storage panels use % capacity.
+    # time windowing
+    if start is not None and end is not None:
+        slicer = slice(start, end)
+        sim_release = sim_release.loc[slicer]; sim_storage_MG = sim_storage_MG.loc[slicer]
+        if obs_release is not None: obs_release = obs_release.loc[slicer]
+        if obs_storage_MG is not None: obs_storage_MG = obs_storage_MG.loc[slicer]
+        for s in ("pywr_param_release","pywr_param_storage_MG","pywr_default_release","pywr_default_storage_MG","nor_lo_pct","nor_hi_pct"):
+            v = locals().get(s)
+            if v is not None: locals()[s] = v.loc[slicer]
 
-    Readability tweaks:
-      - slim lines (sims lw=0.35, obs lw=0.5), small markers (ms=3)
-      - relaxed limits via default Matplotlib + margins to avoid clipping
-      - FDC uses log y (positive-only)
-      - legends outside, consistent titles, clean layout
-    """
-    # slice + convert
-    sim_r = sim_release.loc[start:end]
-    sim_s_pct = to_percent_storage(sim_storage_MG.loc[start:end], reservoir)
+    # unit conversions
+    sim_s_pct = to_percent_storage(sim_storage_MG, reservoir)
+    obs_s_pct = to_percent_storage(obs_storage_MG, reservoir) if obs_storage_MG is not None else None
+    pywr_param_s_pct   = to_percent_storage(pywr_param_storage_MG, reservoir)   if pywr_param_storage_MG is not None else None
+    pywr_default_s_pct = to_percent_storage(pywr_default_storage_MG, reservoir) if pywr_default_storage_MG is not None else None
 
-    obs_r = obs_s_pct = None
-    if obs_release is not None:
-        obs_r = obs_release.loc[start:end]
-    if obs_storage_MG is not None:
-        obs_s_pct = to_percent_storage(obs_storage_MG.loc[start:end], reservoir)
+    # monthly/annual aggregates
+    m_sim_r = _safe_monthly_means(sim_release);       m_sim_s = _safe_monthly_means(sim_s_pct)
+    m_obs_r = _safe_monthly_means(obs_release);       m_obs_s = _safe_monthly_means(obs_s_pct)
+    y_sim_r = _safe_annual_means(sim_release);        y_sim_s = _safe_annual_means(sim_s_pct)
+    y_obs_r = _safe_annual_means(obs_release);        y_obs_s = _safe_annual_means(obs_s_pct)
 
-    # monthly & annual aggregates
-    m_sim_r = _safe_monthly_means(sim_r)
-    m_sim_s = _safe_monthly_means(sim_s_pct)
-    m_obs_r = _safe_monthly_means(obs_r) if obs_r is not None else pd.Series(index=range(1, 13), dtype=float)
-    m_obs_s = _safe_monthly_means(obs_s_pct) if obs_s_pct is not None else pd.Series(index=range(1, 13), dtype=float)
+    # FDCs
+    fdc_d_sim = _fdc_positive(sim_release);  fdc_m_sim = _fdc_positive(m_sim_r);  fdc_y_sim = _fdc_positive(y_sim_r)
+    fdc_d_obs = _fdc_positive(obs_release) if obs_release is not None else (np.array([]), np.array([]))
+    fdc_m_obs = _fdc_positive(m_obs_r)     if obs_release is not None else (np.array([]), np.array([]))
+    fdc_y_obs = _fdc_positive(y_obs_r)     if obs_release is not None else (np.array([]), np.array([]))
 
-    y_sim_r = _safe_annual_means(sim_r)
-    y_sim_s = _safe_annual_means(sim_s_pct)
-    y_obs_r = _safe_annual_means(obs_r) if obs_r is not None else pd.Series(dtype=float)
-    y_obs_s = _safe_annual_means(obs_s_pct) if obs_s_pct is not None else pd.Series(dtype=float)
-
-    # FDCs (daily / monthly mean / annual mean releases)
-    fdc_d_sim = _fdc_positive(sim_r)
-    fdc_m_sim = _fdc_positive(m_sim_r)
-    fdc_y_sim = _fdc_positive(y_sim_r)
-    fdc_d_obs = fdc_m_obs = fdc_y_obs = (np.array([]), np.array([]))
-    if obs_r is not None:
-        fdc_d_obs = _fdc_positive(obs_r)
-        fdc_m_obs = _fdc_positive(m_obs_r)
-        fdc_y_obs = _fdc_positive(y_obs_r)
-
-    # plotting
+    # canvas
     month_labels = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
-
     fig, axs = plt.subplots(3, 3, figsize=(18, 12))
-    axs = axs  # 3x3 array
 
-    # === Row 1: Daily ===
-    # Storage (%)
-    ax = axs[0, 0]
-    ax.plot(sim_s_pct.index, sim_s_pct.values, label="Sim", color="tab:green", lw=0.5)
+    # ------ Row 1: Daily ------
+    # Storage (daily)
+    ax = axs[0,0]
+    ax.plot(
+        sim_s_pct.index, sim_s_pct.values,
+        label="Sim", lw=LW["sim"], color=PALETTE["sim"], alpha=ALPHA["sim"]
+    )
     if obs_s_pct is not None:
-        ax.plot(obs_s_pct.index, obs_s_pct.values, label="Obs", color="black", lw=0.5)
-    ax.set_title(f"{reservoir}: Daily Storage (%)")
-    ax.set_ylabel(storage_ylabel)
-    ax.grid(True, alpha=0.3)
-    ax.margins(y=0.06)
+        ax.plot(
+            obs_s_pct.index, obs_s_pct.values,
+            label="Obs", lw=LW["obs"], color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
+    if pywr_param_s_pct is not None:
+        ax.plot(
+            pywr_param_s_pct.index, pywr_param_s_pct.values,
+            label="Pywr (Param)", lw=LW["pywr_param"], color=PALETTE["pywr_param"], alpha=ALPHA["pywr_param"]
+        )
+    if pywr_default_s_pct is not None:
+        ax.plot(
+            pywr_default_s_pct.index, pywr_default_s_pct.values,
+            label="Pywr (Default)", lw=LW["pywr_default"], color=PALETTE["pywr_default"], alpha=ALPHA["pywr_default"]
+        )
+    if nor_lo_pct is not None:
+        ax.plot(
+            nor_lo_pct.index, nor_lo_pct.values,
+            ls=":", lw=LW["nor"], color=PALETTE["nor"], label="NOR lo"
+        )
+    if nor_hi_pct is not None:
+        ax.plot(
+            nor_hi_pct.index, nor_hi_pct.values,
+            ls=":", lw=LW["nor"], color=PALETTE["nor"], label="NOR hi"
+        )
+    ax.set_title("Daily Storage (%)"); ax.set_ylabel(storage_ylabel); ax.grid(True, alpha=0.3); ax.margins(y=0.06); _nice_datetime_axis(ax)
 
-    # Release (MGD)
-    ax = axs[0, 1]
-    if obs_r is not None:
-        ax.plot(obs_r.index, obs_r.values, label="Obs", color="black", lw=0.5)
-    ax.plot(sim_r.index, sim_r.values, label="Sim", ls="--", color="tab:blue", lw=0.5)
-    ax.set_title(f"{reservoir}: Daily Release")
-    ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.3)
-    ax.margins(y=0.06)
+    # Release (daily)
+    ax = axs[0,1]
+    if obs_release is not None:
+        ax.plot(
+            obs_release.index, obs_release.values,
+            label="Obs", lw=LW["obs"], color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
+    ax.plot(
+        sim_release.index, sim_release.values,
+        label="Sim", lw=LW["sim"], color=PALETTE["sim"], alpha=ALPHA["sim"], ls="--"
+    )
+    if pywr_param_release is not None:
+        ax.plot(
+            pywr_param_release.index, pywr_param_release.values,
+            label="Pywr (Param)", lw=LW["pywr_param"], color=PALETTE["pywr_param"], alpha=ALPHA["pywr_param"]
+        )
+    if pywr_default_release is not None:
+        ax.plot(
+            pywr_default_release.index, pywr_default_release.values,
+            label="Pywr (Default)", lw=LW["pywr_default"], color=PALETTE["pywr_default"], alpha=ALPHA["pywr_default"]
+        )
+    ax.set_title("Daily Release"); ax.set_ylabel(ylabel); ax.grid(True, alpha=0.3); ax.margins(y=0.06); _nice_datetime_axis(ax)
 
-    # FDC (daily release)
-    ax = axs[0, 2]
+    # FDC daily (release)
+    ax = axs[0,2]
     if len(fdc_d_obs[0]):
-        ax.plot(*fdc_d_obs, label="Obs", color="black", lw=0.5)
+        ax.plot(
+            *fdc_d_obs, label="Obs", lw=LW["obs"], color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
     if len(fdc_d_sim[0]):
-        ax.plot(*fdc_d_sim, label="Sim", ls="--", color="tab:blue", lw=0.5)
-    ax.set_title(f"{reservoir}: Daily Release FDC")
-    ax.set_xlabel("Exceedance (%)")
-    ax.set_yscale("log")
-    ax.grid(True, which="both", alpha=0.3)
-    ax.margins(y=0.06)
+        ax.plot(
+            *fdc_d_sim, label="Sim", lw=LW["sim"], color=PALETTE["sim"], alpha=ALPHA["sim"], ls="--"
+        )
+    ax.set_title("Daily Release FDC"); ax.set_xlabel("Exceedance (%)"); ax.set_yscale("log"); ax.grid(True, which="both", alpha=0.3); ax.margins(y=0.06)
 
-    # === Row 2: Monthly means ===
-    # Storage (%)
-    ax = axs[1, 0]
-    ax.plot(month_labels, m_sim_s.values, label="Sim", color="tab:green", marker="o", lw=0.5, ms=3)
-    if not m_obs_s.isna().all():
-        ax.plot(month_labels, m_obs_s.values, label="Obs", color="black", marker="o", lw=0.5, ms=3)
-    ax.set_title(f"{reservoir}: Monthly Avg Storage")
-    ax.set_ylabel(storage_ylabel)
-    ax.grid(True, alpha=0.3)
-    ax.margins(y=0.06)
+    # ------ Row 2: Monthly means ------
+    # Storage (monthly avg)
+    ax = axs[1,0]
+    ax.plot(
+        month_labels, _safe_monthly_means(sim_s_pct).values,
+        label="Sim", marker="o", lw=LW["sim"], ms=MS, color=PALETTE["sim"], alpha=ALPHA["sim"]
+    )
+    if obs_s_pct is not None:
+        ax.plot(
+            month_labels, _safe_monthly_means(obs_s_pct).values,
+            label="Obs", marker="o", lw=LW["obs"], ms=MS, color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
+    if pywr_param_s_pct is not None:
+        ax.plot(
+            month_labels, _safe_monthly_means(pywr_param_s_pct).values,
+            label="Pywr (Param)", marker="o", lw=LW["pywr_param"], ms=MS, color=PALETTE["pywr_param"], alpha=ALPHA["pywr_param"]
+        )
+    if pywr_default_s_pct is not None:
+        ax.plot(
+            month_labels, _safe_monthly_means(pywr_default_s_pct).values,
+            label="Pywr (Default)", marker="o", lw=LW["pywr_default"], ms=MS, color=PALETTE["pywr_default"], alpha=ALPHA["pywr_default"]
+        )
+    ax.set_title("Monthly Avg Storage"); ax.set_ylabel(storage_ylabel); ax.grid(True, alpha=0.3); ax.margins(y=0.06)
 
-    # Release (MGD)
-    ax = axs[1, 1]
-    if not m_obs_r.isna().all():
-        ax.plot(month_labels, m_obs_r.values, label="Obs", color="black", marker="o", lw=0.5, ms=3)
-    ax.plot(month_labels, m_sim_r.values, label="Sim", ls="--", color="tab:blue", marker="o", lw=0.5, ms=3)
-    ax.set_title(f"{reservoir}: Monthly Avg Release")
-    ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.3)
-    ax.margins(y=0.06)
+    # Release (monthly avg)
+    ax = axs[1,1]
+    if obs_release is not None:
+        ax.plot(
+            month_labels, _safe_monthly_means(obs_release).values,
+            label="Obs", marker="o", lw=LW["obs"], ms=MS, color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
+    ax.plot(
+        month_labels, m_sim_r.values,
+        label="Sim", ls="--", marker="o", lw=LW["sim"], ms=MS, color=PALETTE["sim"], alpha=ALPHA["sim"]
+    )
+    if pywr_param_release is not None:
+        ax.plot(
+            month_labels, _safe_monthly_means(pywr_param_release).values,
+            label="Pywr (Param)", marker="o", lw=LW["pywr_param"], ms=MS, color=PALETTE["pywr_param"], alpha=ALPHA["pywr_param"]
+        )
+    if pywr_default_release is not None:
+        ax.plot(
+            month_labels, _safe_monthly_means(pywr_default_release).values,
+            label="Pywr (Default)", marker="o", lw=LW["pywr_default"], ms=MS, color=PALETTE["pywr_default"], alpha=ALPHA["pywr_default"]
+        )
+    ax.set_title("Monthly Avg Release"); ax.set_ylabel(ylabel); ax.grid(True, alpha=0.3); ax.margins(y=0.06)
 
-    # FDC (monthly mean release)
-    ax = axs[1, 2]
+    # Monthly FDC (release)
+    ax = axs[1,2]
     if len(fdc_m_obs[0]):
-        ax.plot(*fdc_m_obs, label="Obs", color="black", lw=0.5)
+        ax.plot(
+            *fdc_m_obs, label="Obs", lw=LW["obs"], color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
     if len(fdc_m_sim[0]):
-        ax.plot(*fdc_m_sim, label="Sim", ls="--", color="tab:blue", lw=0.5)
-    ax.set_title(f"{reservoir}: Monthly Release FDC")
-    ax.set_xlabel("Exceedance (%)")
-    ax.set_yscale("log")
-    ax.grid(True, which="both", alpha=0.3)
-    ax.margins(y=0.06)
+        ax.plot(
+            *fdc_m_sim, label="Sim", ls="--", lw=LW["sim"], color=PALETTE["sim"], alpha=ALPHA["sim"]
+        )
+    ax.set_title("Monthly Release FDC"); ax.set_xlabel("Exceedance (%)"); ax.set_yscale("log"); ax.grid(True, which="both", alpha=0.3); ax.margins(y=0.06)
 
-    # === Row 3: Annual means ===
-    # Storage (%)
-    ax = axs[2, 0]
-    ax.plot(y_sim_s.index, y_sim_s.values, label="Sim", color="tab:green", marker="o", lw=0.5, ms=3)
-    if not y_obs_s.empty:
-        ax.plot(y_obs_s.index, y_obs_s.values, label="Obs", color="black", marker="o", lw=0.5, ms=3)
-    ax.set_title(f"{reservoir}: Annual Avg Storage")
-    ax.set_xlabel("Year")
-    ax.set_ylabel(storage_ylabel)
-    ax.grid(True, alpha=0.3)
-    ax.margins(y=0.06)
+    # ------ Row 3: Annual means ------
+    # Storage (annual avg)
+    ax = axs[2,0]
+    ax.plot(
+        y_sim_s.index, y_sim_s.values,
+        label="Sim", marker="o", lw=LW["sim"], ms=MS, color=PALETTE["sim"], alpha=ALPHA["sim"]
+    )
+    y_obs_s_safe = _safe_annual_means(obs_s_pct)
+    if not y_obs_s_safe.empty:
+        ax.plot(
+            y_obs_s_safe.index, y_obs_s_safe.values,
+            label="Obs", marker="o", lw=LW["obs"], ms=MS, color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
+    if pywr_param_s_pct is not None:
+        y_pp = _safe_annual_means(pywr_param_s_pct)
+        ax.plot(
+            y_pp.index, y_pp.values,
+            label="Pywr (Param)", marker="o", lw=LW["pywr_param"], ms=MS, color=PALETTE["pywr_param"], alpha=ALPHA["pywr_param"]
+        )
+    if pywr_default_s_pct is not None:
+        y_pd = _safe_annual_means(pywr_default_s_pct)
+        ax.plot(
+            y_pd.index, y_pd.values,
+            label="Pywr (Default)", marker="o", lw=LW["pywr_default"], ms=MS, color=PALETTE["pywr_default"], alpha=ALPHA["pywr_default"]
+        )
+    ax.set_title("Annual Avg Storage"); ax.set_xlabel("Year"); ax.set_ylabel(storage_ylabel); ax.grid(True, alpha=0.3); ax.margins(y=0.06)
 
-    # Release (MGD)
-    ax = axs[2, 1]
+    # Release (annual avg)
+    ax = axs[2,1]
     if not y_obs_r.empty:
-        ax.plot(y_obs_r.index, y_obs_r.values, label="Obs", color="black", marker="o", lw=0.5, ms=3)
-    ax.plot(y_sim_r.index, y_sim_r.values, label="Sim", ls="--", color="tab:blue", marker="o", lw=0.5, ms=3)
-    ax.set_title(f"{reservoir}: Annual Avg Release")
-    ax.set_xlabel("Year")
-    ax.set_ylabel(ylabel)
-    ax.grid(True, alpha=0.3)
-    ax.margins(y=0.06)
+        ax.plot(
+            y_obs_r.index, y_obs_r.values,
+            label="Obs", marker="o", lw=LW["obs"], ms=MS, color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
+    ax.plot(
+        y_sim_r.index, y_sim_r.values,
+        label="Sim", ls="--", marker="o", lw=LW["sim"], ms=MS, color=PALETTE["sim"], alpha=ALPHA["sim"]
+    )
+    if pywr_param_release is not None:
+        y_pr = _safe_annual_means(pywr_param_release)
+        ax.plot(
+            y_pr.index, y_pr.values,
+            label="Pywr (Param)", marker="o", lw=LW["pywr_param"], ms=MS, color=PALETTE["pywr_param"], alpha=ALPHA["pywr_param"]
+        )
+    if pywr_default_release is not None:
+        y_pd = _safe_annual_means(pywr_default_release)
+        ax.plot(
+            y_pd.index, y_pd.values,
+            label="Pywr (Default)", marker="o", lw=LW["pywr_default"], ms=MS, color=PALETTE["pywr_default"], alpha=ALPHA["pywr_default"]
+        )
+    ax.set_title("Annual Avg Release"); ax.set_xlabel("Year"); ax.set_ylabel(ylabel); ax.grid(True, alpha=0.3); ax.margins(y=0.06)
 
-    # FDC (annual mean release)
-    ax = axs[2, 2]
+    # Annual FDC (release)
+    ax = axs[2,2]
     if len(fdc_y_obs[0]):
-        ax.plot(*fdc_y_obs, label="Obs", color="black", lw=0.5)
+        ax.plot(
+            *fdc_y_obs, label="Obs", lw=LW["obs"], color=PALETTE["obs"], alpha=ALPHA["obs"]
+        )
     if len(fdc_y_sim[0]):
-        ax.plot(*fdc_y_sim, label="Sim", ls="--", color="tab:blue", lw=0.5)
-    ax.set_title(f"{reservoir}: Annual Release FDC")
-    ax.set_xlabel("Exceedance (%)")
-    ax.set_yscale("log")
-    ax.grid(True, which="both", alpha=0.3)
-    ax.margins(y=0.06)
+        ax.plot(
+            *fdc_y_sim, label="Sim", ls="--", lw=LW["sim"], color=PALETTE["sim"], alpha=ALPHA["sim"]
+        )
+    ax.set_title("Annual Release FDC"); ax.set_xlabel("Exceedance (%)"); ax.set_yscale("log"); ax.grid(True, which="both", alpha=0.3); ax.margins(y=0.06)
 
-    # global title
+    # ----- Title + shared legend -----
+    title_bits = [reservoir]
+    if policy_label: title_bits.append(policy_label)
+    if pick_label:   title_bits.append(pick_label)
+    if start and end: title_bits.append(f"{start} to {end}")
     fig = plt.gcf()
-    fig.suptitle(f"{reservoir} — Storage & Release Diagnostics\n{start} to {end}",
-                 fontsize=16, weight="bold")
+    fig.suptitle(" — ".join(title_bits), fontsize=16, weight="bold")
 
-    # --- shared legend on the right (collect unique labels across panels) ---
+    # shared legend
     handles, labels = [], []
     for ax in axs.ravel():
         h, l = ax.get_legend_handles_labels()
         for hh, ll in zip(h, l):
             if ll and ll not in labels:
-                handles.append(hh)
-                labels.append(ll)
-        # remove any per-axes legend so we only show the shared one
+                handles.append(hh); labels.append(ll)
         if ax.get_legend() is not None:
             ax.legend_.remove()
+    if handles:
+        fig.legend(handles, labels, loc="center left", bbox_to_anchor=(0.985, 0.5), framealpha=0.92, title="Series")
 
-    # add figure-level legend
-    fig.legend(
-        handles, labels,
-        loc="center left",
-        bbox_to_anchor=(0.985, 0.5),  # nudge further right if needed
-        framealpha=0.92,
-        title="Series"
-    )
-
-    # leave right margin for the legend and a bit up top for the suptitle
     fig.tight_layout(rect=[0, 0, 0.96, 0.90])
 
     if save_path:

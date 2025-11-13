@@ -1,3 +1,4 @@
+# methods/plotting/plot_parallel_axis.py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -38,30 +39,6 @@ def reorganize_objs(objs, columns_axes, ideal_direction, minmaxs):
     objs_reorg = objs[columns_axes]
     
     ### reorganize & normalize data to go from 0 (bottom of figure) to 1 (top of figure), 
-    ### based on direction of preference for figure and individual axes
-    # if ideal_direction == 'bottom':
-    #     tops = objs_reorg.min(axis=0)
-    #     bottoms = objs_reorg.max(axis=0)
-    #     for i, minmax in enumerate(minmaxs):
-    #         if minmax == 'max':
-    #             objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i]) / \
-    #                                     (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
-    #         else:
-    #             bottoms[i], tops[i] = tops[i], bottoms[i]
-    #             objs_reorg.iloc[:, -1] = (objs_reorg.iloc[:, -1] - objs_reorg.iloc[:, -1].min(axis=0)) / \
-    #                                      (objs_reorg.iloc[:, -1].max(axis=0) - objs_reorg.iloc[:, -1].min(axis=0))
-    # elif ideal_direction == 'top':
-    #     tops = objs_reorg.max(axis=0)
-    #     bottoms = objs_reorg.min(axis=0)
-    #     for i, minmax in enumerate(minmaxs):
-    #         if minmax == 'max':
-    #             objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i] - objs_reorg.iloc[:, i].min(axis=0)) / \
-    #                                     (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
-    #         else:
-    #             bottoms[i], tops[i] = tops[i], bottoms[i]
-    #             objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i]) / \
-    #                                     (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
-
     if ideal_direction == 'bottom':
         tops = objs_reorg.min(axis=0)
         bottoms = objs_reorg.max(axis=0)
@@ -78,8 +55,8 @@ def reorganize_objs(objs, columns_axes, ideal_direction, minmaxs):
                                         (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
             else:
                 bottoms[i], tops[i] = tops[i], bottoms[i]
-                objs_reorg.iloc[:, -1] = (objs_reorg.iloc[:, -1] - objs_reorg.iloc[:, -1].min(axis=0)) / \
-                                         (objs_reorg.iloc[:, -1].max(axis=0) - objs_reorg.iloc[:, -1].min(axis=0))
+                objs_reorg.iloc[:, i] = (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i]) / \
+                                        (objs_reorg.iloc[:, i].max(axis=0) - objs_reorg.iloc[:, i].min(axis=0))
     elif ideal_direction == 'top':
         tops = objs_reorg.max(axis=0)
         bottoms = objs_reorg.min(axis=0)

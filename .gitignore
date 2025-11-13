@@ -36,3 +36,6 @@ example_nsga copy.py
 # Ignore specific figure files
 figures/policy_functions/
 figures/solution_dynamics/
+moeaframework/figures_moea_metrics/
+interactive/
+figures/

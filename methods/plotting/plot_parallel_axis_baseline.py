@@ -1,3 +1,4 @@
+# methods/plotting/plot_parallel_axis_baseline.py
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -41,8 +42,10 @@ def reorganize_objs(objs, columns_axes, ideal_direction, minmaxs):
                 objs_reorg.iloc[:, i] = 0.5
                 continue
             if minmax == "max":
+                # larger is better, but ideal is 'bottom' so invert
                 objs_reorg.iloc[:, i] = (mx - col) / (mx - mn)
             else:
+                # smaller is better: swap annotation ends so top shows the *min* value
                 bottoms[i], tops[i] = tops[i], bottoms[i]
                 objs_reorg.iloc[:, i] = (col - mn) / (mx - mn)
     else:  # ideal_direction == "top"
@@ -58,13 +61,13 @@ def reorganize_objs(objs, columns_axes, ideal_direction, minmaxs):
             if minmax == "max":
                 objs_reorg.iloc[:, i] = (col - mn) / (mx - mn)
             else:
+                # smaller is better: put the *min* at the top annotation
+                bottoms[i], tops[i] = tops[i], bottoms[i]
                 objs_reorg.iloc[:, i] = (mx - col) / (mx - mn)
 
-    # --- CRITICAL: ensure lines always render even if some points are NaN ---
-    # (Only affects the plotting coordinates; tops/bottoms stay true to data.)
     objs_reorg = objs_reorg.where(np.isfinite(objs_reorg), 0.5)
-
     return objs_reorg, tops, bottoms
+
 
 def custom_parallel_coordinates(
     objs, columns_axes=None, axis_labels=None,

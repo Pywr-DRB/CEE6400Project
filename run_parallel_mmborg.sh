@@ -50,7 +50,7 @@ submit_job() {
 # "RBF" "PWL" "STARFIT"
 POLICY_TYPES=("RBF" "PWL" "STARFIT")
 # "fewalter" "prompton" "beltzvilleCombined" "blueMarsh"
-RESERVOIR_NAMES=("fewalter" "prompton")
+RESERVOIR_NAMES=("fewalter" "prompton" "beltzvilleCombined" "blueMarsh")
 
 # Loop through all combinations of reservoir names and policy types
 for POLICY_TYPE in "${POLICY_TYPES[@]}"; do
